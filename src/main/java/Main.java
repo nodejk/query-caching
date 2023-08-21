@@ -1,5 +1,6 @@
-import common.Configuration;
+import common.CalciteConfiguration;
 import test.QueryReader;
+import utils.Configuration;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -27,52 +28,82 @@ public class Main {
      */
 
     public static void main(String[] args) throws Exception {
-        hideLoggerWarnings();
+        String cacheType = args[0];
+        String mode = args[1];
+        Integer cacheSize = Integer.parseInt(args[2]);
+        String queryType = args[3];
 
-        System.out.println("########################################################################################");
-        System.out.println("########################################################################################");
-        System.out.println("########################################################################################");
+        Integer derivibility = Integer.parseInt(args[4]);
+        String dimensionType = args[5];
 
-//        args = new String[] {"2", "0", "0"};
+        Configuration config = new Configuration(
+                cacheType,
+                mode,
+                cacheSize,
+                queryType,
+                derivibility,
+                dimensionType
+        );
 
-        int modeArg = Integer.parseInt(args[0]);
-        int cacheSizeArg = Integer.parseInt(args[1]);
-        int derivabilityArg = Integer.parseInt(args[2]);
-        int queryTypeArg = Integer.parseInt(args[3]);
+        CalciteConfiguration calciteConfiguration = CalciteConfiguration.initialize();
 
-        if (derivabilityArg <= 4) {
-            lowerDerVal = derivabilityArg == 0 ? 1
-            : derivabilityArg == 1 ? 0.94
-            : derivabilityArg == 2 ? 0.85
-            : derivabilityArg == 3 ? 0.8
-            : 0.5;
+        QueryReader.dir = config.derivability.toString();
+        QueryReader.folderName = config.cacheType.toString();
 
-            derivabilityArg = 5;
-        }
+        Tester tester = new Tester(calciteConfiguration, config);
+//
+        tester.testMain(config.mode, config.queryType);
+//        hideLoggerWarnings();
+//
+//        System.out.println("########################################################################################");
+//        System.out.println("########################################################################################");
+//        System.out.println("########################################################################################");
+//
+////        args = new String[] {"2", "0", "0"};
+//
+//        int modeArg = Integer.parseInt(args[0]);
+//        int cacheSizeArg = Integer.parseInt(args[1]);
+//        int derivabilityArg = Integer.parseInt(args[2]);
+//        int queryTypeArg = Integer.parseInt(args[3]);
+//
+//        if (derivabilityArg <= 4) {
+//            lowerDerVal = derivabilityArg == 0 ? 1
+//            : derivabilityArg == 1 ? 0.94
+//            : derivabilityArg == 2 ? 0.85
+//            : derivabilityArg == 3 ? 0.8
+//            : 0.5;
+//
+//            derivabilityArg = 5;
+//        }
+//
+//        Configuration config = Configuration.initialize();
 
-        Configuration config = Configuration.initialize();
-        Tester tester = new Tester(config);
 
-        String mode = modeArg == 0 ? "SEQ"
-                : modeArg == 1 ? "HYB"
-                : modeArg == 2 ? "BAT"
-                : "MVR";
-        String queryType = queryTypeArg == 0 ? "ALL"
-                : queryTypeArg == 1 ? "Simple Filter"
-                : queryTypeArg == 2 ? "Complex filter"
-                : queryTypeArg == 3 ? "Filter join"
-                : queryTypeArg == 4 ? "Filter aggregate"
-                : "Filter join aggregate";
-        int size = CACHE_SIZES.get(cacheSizeArg);
-        String der = DERIVABILITIES.get(derivabilityArg);
+//        String mode = modeArg == 0 ? "SEQ"
+//                : modeArg == 1 ? "HYB"
+//                : modeArg == 2 ? "BAT"
+//                : "MVR";
+//        String queryType = queryTypeArg == 0 ? "ALL"
+//                : queryTypeArg == 1 ? "Simple Filter"
+//                : queryTypeArg == 2 ? "Complex filter"
+//                : queryTypeArg == 3 ? "Filter join"
+//                : queryTypeArg == 4 ? "Filter aggregate"
+//                : "Filter join aggregate";
+//        int size = CACHE_SIZES.get(cacheSizeArg);
+//        String der = DERIVABILITIES.get(derivabilityArg);
+//
+//        System.out.printf(
+//                "Starting with mode: %s, cache size: %dMB, derivability: %s, query type: %s\n", mode, size,
+//                DERIVABILITIES.get(derivabilityArg),
+//                queryType
+//        );
+//        if (lowerDerVal > 0) {
+//            System.out.println("LOW DER: " + lowerDerVal);
+//        }
+//
+//        QueryReader.dir = der;
 
-        System.out.printf("Starting with mode: %s, cache size: %dMB, derivability: %s, query type: %s\n", mode, size, DERIVABILITIES.get(derivabilityArg), queryType);
-        if (lowerDerVal > 0) {
-            System.out.println("LOW DER: " + lowerDerVal);
-        }
 
-        QueryReader.dir = der;
-        tester.testMain(modeArg, size, queryTypeArg);
 
 
 //        tester.normalExecTest();

@@ -1,10 +1,11 @@
-package cache.policy;
+package cache.policy.lru;
 
 import cache.CacheItem;
 import cache.dim.Dimension;
+import cache.policy.ReplacementPolicy;
 import kotlin.Pair;
-
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class LRUPolicy<T> implements ReplacementPolicy<T> {
@@ -16,7 +17,7 @@ public class LRUPolicy<T> implements ReplacementPolicy<T> {
         List<Integer> sortedByTime = IntStream.range(0, items.size())
                 .boxed()
                 .sorted(Comparator.comparingLong(i -> items.get(i).getLastAccessTime()))
-                .toList();
+                .collect(Collectors.toList());
 
         List<Integer> removables = new ArrayList<>();
         int i = 0;
@@ -34,19 +35,22 @@ public class LRUPolicy<T> implements ReplacementPolicy<T> {
     }
 
     @Override
-    public Map<String, List<CacheItem<T>>> getRemovableIndexes(Map<String, List<CacheItem<T>>> map, long currentSize, Dimension dimension) {
+    public Map<String, List<CacheItem<T>>> getRemovableIndexes(
+            Map<String, List<CacheItem<T>>> map,
+            long currentSize, Dimension dimension
+    ) {
         int requiredSize = (int) (dimension.getValue() * PRUNE_TO);
         Map<String, List<CacheItem<T>>> removableMap = new HashMap<>();
 
         List<Pair<String, CacheItem<T>>> allItems = map.keySet().stream()
                 .map(x -> new Pair<>(x, map.get(x)))
                 .flatMap(x -> x.getSecond().stream().map(k -> new Pair<>(x.getFirst(), k)))
-                .toList();
+                .collect(Collectors.toList());
 
         List<Integer> sortedByTime = IntStream.range(0, allItems.size())
                 .boxed()
                 .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getLastAccessTime()))
-                .toList();
+                .collect(Collectors.toList());
 
         int i = 0;
 

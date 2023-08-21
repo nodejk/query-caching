@@ -10,6 +10,8 @@ public class CacheItem<T> {
     // If dimension is COUNT, then value is 1.
     private long value;
 
+    private long order;
+
     private long lastAccessTime;
     private int numAccesses;
 
@@ -25,7 +27,7 @@ public class CacheItem<T> {
 
     public T getItem() {
         lastAccessTime = System.currentTimeMillis();
-        numAccesses++;
+        this.numAccesses++;
         return item;
     }
 
@@ -50,11 +52,11 @@ public class CacheItem<T> {
     }
 
     public void incrementNumAccesses() {
-        numAccesses++;
+        this.numAccesses++;
     }
 
     public int getNumAccesses() {
-        return numAccesses;
+        return this.numAccesses;
     }
 
     @Override

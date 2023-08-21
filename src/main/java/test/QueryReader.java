@@ -1,6 +1,7 @@
 package test;
 
 import common.Utils;
+import enums.QueryType;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -20,6 +21,7 @@ public class QueryReader {
     public static final int TYPE_FILTER_JOIN_AGGREGATE = 5;
 
     public static String dir;
+    public static String folderName;
 
     private static final String batchMetadataPath = "resources/batchables.txt";
 
@@ -104,9 +106,9 @@ public class QueryReader {
     }
 
     // Scale is in the order of 32. So a scale of 10 would mean 320 queries
-    public static List<List<String>> getQueries(int scale, int type) throws IOException {
-        List<String> queryTemplates = readQueries();
-        List<List<List<String>>> md = readQueryMetadata();
+    public static List<List<String>> getQueries(int scale, QueryType type) throws IOException {
+        List<String> queryTemplates = QueryReader.readQueries();
+        List<List<List<String>>> md = QueryReader.readQueryMetadata();
 
         List<String> queries = new ArrayList<>();
 
@@ -124,30 +126,37 @@ public class QueryReader {
                 for (int z = 0; z < argInds.size(); z++) {
                     int argIndex = argInds.get(z);
                     List<String> v = md.get(i).get(z);
+//                    System.out.println("given v-->" + v);
                     if (template.startsWith("%d", argIndex)) {
                         int mn = Integer.parseInt(v.get(0));
                         int mx = Integer.parseInt(v.get(1));
+//                        System.out.println("start with--> " + mn + "-" + mx);
                         vals.add(Utils.getQueryOperandBetween(mn, mx));
                     } else {
                         double mn = Double.parseDouble(v.get(0));
                         double mx = Double.parseDouble(v.get(1));
+//                        System.out.println("NOT with--> " + mn + "-" + mx);
+
                         vals.add(Utils.getQueryOperandBetween(mn, mx));
                     }
                 }
+
+//                System.out.println("vals---->" + vals);
 
                 queries.add(String.format(template, vals.toArray()));
             }
         }
 
-        return batch(reduceTypes(queries, type), scale);
+        return QueryReader.batch(QueryReader.reduceTypes(queries, type), scale);
     }
 
     private static List<List<String>> batch(List<String> queries, int scale) throws IOException {
-        List<List<Integer>> batchMd = readBatchMetadata(queries);
+        List<List<Integer>> batchMd = QueryReader.readBatchMetadata(queries);
 
         List<List<String>> batchedQueries = new ArrayList<>();
         List<Integer> alreadyBatched = new ArrayList<>();
 
+//        System.out.println("queries given---> " + queries.size());
         for (int i = 0; i < queries.size(); i++) {
             if (alreadyBatched.contains(i)) {
                 continue;
@@ -157,7 +166,7 @@ public class QueryReader {
 
             if (Utils.shouldBatch()) {
                 List<Integer> batchCandidateIndexes = Utils.getBatchCandidateIndexes(queries, i, batchMd);
-                batchCandidateIndexes = batchCandidateIndexes.stream().filter(bc -> !alreadyBatched.contains(bc)).toList();
+                batchCandidateIndexes = batchCandidateIndexes.stream().filter(bc -> !alreadyBatched.contains(bc)).collect(Collectors.toList());
 
                 alreadyBatched.add(i);
                 alreadyBatched.addAll(batchCandidateIndexes);
@@ -172,27 +181,29 @@ public class QueryReader {
                 alreadyBatched.add(i);
             }
         }
+//        System.out.println("queries returning---> " + queries.size());
+
         return batchedQueries;
     }
 
-    private static List<String> reduceTypes(List<String> queries, int type) {
+    private static List<String> reduceTypes(List<String> queries, QueryType type) {
         var simpleFilterIndexes = List.of(24, 25, 26, 27, 28, 29, 30, 31);
         var complexFilterIndexes = List.of(0, 1, 2, 8, 9);
         var filterJoinIndexes = List.of(3, 4, 5, 6, 7);
         var filterAggregateIndexes = List.of(10, 11, 12, 13, 14, 15, 16);
         var filterJoinAggregateIndexes = List.of(17, 18, 19, 20, 21, 22, 23);
         
-        if (type == TYPE_ALL) {
+        if (type == QueryType.ALL) {
             return queries;
         }
         
         List<String> reducedQueries = new ArrayList<>();
         for (int i = 0; i < queries.size(); i++) {
-            if (type == TYPE_SIMPLE_FILTER && simpleFilterIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
-            else if (type == TYPE_COMPLEX_FILTER && complexFilterIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
-            else if (type == TYPE_FILTER_JOIN && filterJoinIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
-            else if (type == TYPE_FILTER_AGGREGATE && filterAggregateIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
-            else if (type == TYPE_FILTER_JOIN_AGGREGATE && filterJoinAggregateIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
+            if (type == QueryType.SIMPLE_FILTER && simpleFilterIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
+            else if (type == QueryType.COMPLEX_FILTER && complexFilterIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
+            else if (type == QueryType.FILTER_JOIN && filterJoinIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
+            else if (type == QueryType.FILTER_AGGREGATE && filterAggregateIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
+            else if (type == QueryType.FILTER_JOIN_AGGREGATE && filterJoinAggregateIndexes.contains(i % 32)) reducedQueries.add(queries.get(i));
         }
 
         return reducedQueries;
@@ -200,7 +211,7 @@ public class QueryReader {
 
     public static void main(String[] args) throws IOException {
         QueryReader.dir = "40";
-        List<List<String>> simpleFilter = getQueries(10, TYPE_FILTER_JOIN_AGGREGATE);
+        List<List<String>> simpleFilter = getQueries(10, QueryType.FILTER_JOIN_AGGREGATE);
 
         System.out.println("A");
     }

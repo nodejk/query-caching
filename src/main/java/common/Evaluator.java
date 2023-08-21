@@ -30,6 +30,5 @@ public class Evaluator {
 
     public static void main(String[] args) {
         Expression<String> expr2 = RuleSet.toCNF(ExprParser.parse("x & y"));
-        System.out.println(expr2.toString());
     }
 }

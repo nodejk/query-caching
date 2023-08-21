@@ -6,7 +6,7 @@ import batch.data.Predicate;
 import com.bpodgursky.jbool_expressions.Expression;
 import com.bpodgursky.jbool_expressions.parsers.ExprParser;
 import com.bpodgursky.jbool_expressions.rules.RuleSet;
-import common.Configuration;
+import common.CalciteConfiguration;
 import common.Evaluator;
 import common.QueryExecutor;
 import common.Utils;
@@ -32,13 +32,13 @@ import static org.apache.commons.lang3.StringUtils.splitByWholeSeparator;
 public class QueryBatcher {
 
     private final Normaliser normaliser;
-    private final Configuration configuration;
+    private final CalciteConfiguration calciteConfiguration;
     private final QueryExecutor validator;
     private final Evaluator evaluator;
 
-    public QueryBatcher(Configuration configuration, QueryExecutor validator) {
+    public QueryBatcher(CalciteConfiguration calciteConfiguration, QueryExecutor validator) {
         this.validator = validator;
-        this.configuration = configuration;
+        this.calciteConfiguration = calciteConfiguration;
         this.normaliser = new Normaliser();
         this.evaluator = new Evaluator();
     }
@@ -371,7 +371,7 @@ public class QueryBatcher {
     }
 
     public void buildCoveringPredicate2(Predicate p1, Predicate p2, Operator operator) {
-        //The fact that we're here means p1 and p2 have the same LHS
+        //The fact that we're here means p1 and p2 have the same LHS (left hand side)
         //If their RHS is a column name and it's the same for p1 and p2, it's a join!
         if (isTableName(p1.getValue()) && p1.getValue().equals(p2.getValue())) {
             operator.addTerm(p1);
@@ -469,7 +469,7 @@ public class QueryBatcher {
 
         operand = replace(operand, "`", "");
         if (operand.contains(".")) operand = splitByWholeSeparator(operand, ".")[0];
-        return configuration.tableNames.contains(operand);
+        return calciteConfiguration.tableNames.contains(operand);
     }
 
     private boolean isIdentifier(SqlBasicCall call, int index) {

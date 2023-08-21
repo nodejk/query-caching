@@ -99,32 +99,34 @@ public class Utils {
         return rnd2.nextInt(limit);
     }
 
-    public static int getRandomNumber(int low, int high) {
-        return rnd2.nextInt(low, high);
-    }
+//    public static int getRandomNumber(int low, int high) {
+//        return rnd2.nextInt(low, high);
+//    }
 
     public static void main(String[] args) {
         System.out.println(isFloat("3.4134"));
     }
 
-    public static double getQueryOperandBetween(List<Object> mnmx) {
-        if (mnmx.get(0) instanceof Double) {
-            double min = (double) mnmx.get(0);
-            double max = (double) mnmx.get(1);
-            return queryGenRng.nextDouble(min, max);
-        } else {
-            int min = (int) mnmx.get(0);
-            int max = (int) mnmx.get(1);
-            return queryGenRng.nextInt(min, max);
-        }
-    }
+//    public static double getQueryOperandBetween(List<Object> mnmx) {
+//        if (mnmx.get(0) instanceof Double) {
+//            double min = (double) mnmx.get(0);
+//            double max = (double) mnmx.get(1);
+//            return queryGenRng.nextDouble(min, max);
+//        } else {
+//            int min = (int) mnmx.get(0);
+//            int max = (int) mnmx.get(1);
+//            return queryGenRng.nextInt(min, max);
+//        }
+//    }
 
     public static int getQueryOperandBetween(int min, int max) {
-        return queryGenRng.nextInt(min, max);
+        return queryGenRng.nextInt(max - min + 1) + min;
     }
 
     public static double getQueryOperandBetween(double min, double max) {
-        return queryGenRng.nextDouble(min, max);
+        double range = max - min;
+        double scaled = queryGenRng.nextDouble() * range;
+        return scaled + min;
     }
 
     public static List<Integer> getAllTemplateArgInds(String template) {
@@ -171,7 +173,7 @@ public class Utils {
     }
 
     public static List<Integer> getBatchCandidateIndexes(List<String> queries, int i, List<List<Integer>> batchMd) {
-        List<Integer> allPossibleBatches = batchMd.stream().filter(bi -> bi.contains(i)).toList().get(0);
+        List<Integer> allPossibleBatches = batchMd.stream().filter(bi -> bi.contains(i)).collect(Collectors.toList()).get(0);
         allPossibleBatches.remove((Integer) i);
 
         if (allPossibleBatches.isEmpty()) {

@@ -40,7 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
-public class Configuration {
+public class CalciteConfiguration {
     public SchemaPlus rootSchema;
     public SchemaPlus schema;
 
@@ -55,9 +55,9 @@ public class Configuration {
 
     public List<String> tableNames;
 
-    private Configuration(SchemaPlus rootSchema, SchemaPlus schema, CalciteConnectionConfig config,
-                          CalciteConnection connection, SqlValidator validator, SqlToRelConverter converter,
-                          Prepare.CatalogReader catalogReader, VolcanoPlanner planner, RelOptCluster cluster) {
+    private CalciteConfiguration(SchemaPlus rootSchema, SchemaPlus schema, CalciteConnectionConfig config,
+                                 CalciteConnection connection, SqlValidator validator, SqlToRelConverter converter,
+                                 Prepare.CatalogReader catalogReader, VolcanoPlanner planner, RelOptCluster cluster) {
         this.rootSchema = rootSchema;
         this.schema = schema;
         this.config = config;
@@ -69,7 +69,7 @@ public class Configuration {
         this.cluster = cluster;
     }
 
-    public static Configuration initialize() throws SQLException {
+    public static CalciteConfiguration initialize() throws SQLException {
         RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
 
         Properties configProperties = new Properties();
@@ -85,11 +85,11 @@ public class Configuration {
 
 
         SchemaPlus rootSchema = calciteConnection.getRootSchema();
-        DataSource dataSource = JdbcSchema.dataSource("jdbc:postgresql:tpch_test", "org.postgresql.Driver", "postgres", "vasu");
+        DataSource dataSource = JdbcSchema.dataSource("jdbc:postgresql:tpc", "org.postgresql.Driver", "root", "password");
         SchemaPlus defaultSchema = rootSchema.add("public", JdbcSchema.create(rootSchema, "public", dataSource, null, null));
 
         List<String> tabNames = new ArrayList<>();
-        ResultSet rs = connection.getMetaData().getTables("tpch_test", null, "%", new String[]{"TABLE"});
+        ResultSet rs = connection.getMetaData().getTables("tpc", null, "%", new String[]{"TABLE"});
         while (rs.next()) {
             tabNames.add(rs.getString(3));
         }
@@ -147,11 +147,10 @@ public class Configuration {
                 converterConfig
         );
 
-        Configuration configuration = new Configuration(rootSchema, defaultSchema, config, calciteConnection,
+        CalciteConfiguration calciteConfiguration = new CalciteConfiguration(rootSchema, defaultSchema, config, calciteConnection,
                 validator, converter, catalogReader, planner, cluster);
-        configuration.tableNames = tabNames;
+        calciteConfiguration.tableNames = tabNames;
 
-        return configuration;
-
+        return calciteConfiguration;
     }
 }

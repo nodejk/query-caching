@@ -1,6 +1,6 @@
 package mv;
 
-import common.Configuration;
+import common.CalciteConfiguration;
 import org.apache.calcite.materialize.Lattice;
 import org.apache.calcite.materialize.LatticeRootNode;
 import org.apache.calcite.materialize.LatticeSuggester;
@@ -33,8 +33,8 @@ public class LatticeTest {
     }
 
     public static void main(String[] args) throws SQLException, ValidationException, SqlParseException, RelConversionException {
-        Configuration configuration = Configuration.initialize();
-        LatticeTest test = new LatticeTest(configuration.schema);
+        CalciteConfiguration calciteConfiguration = CalciteConfiguration.initialize();
+        LatticeTest test = new LatticeTest(calciteConfiguration.schema);
         test.test();
     }
 
@@ -45,7 +45,6 @@ public class LatticeTest {
         lattices = (tester.addQuery("SELECT count(*), sum(\"s_suppkey\") FROM \"supplier\" WHERE \"s_suppkey\" > 1000"));
         lattices = (tester.addQuery("SELECT \"s_suppkey\" FROM \"supplier\" WHERE \"s_suppkey\" > 100"));
 
-        System.out.println(Arrays.toString(lattices.toArray()));
     }
 
     private static class Tester {

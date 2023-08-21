@@ -33,11 +33,11 @@ public class QueryExecutor {
 
     private final Pattern betweenPattern = Pattern.compile("(\\S*) BETWEEN( \\S*)? (\\S*) \\S* (\\S*)");
 
-    public QueryExecutor(Configuration configuration) {
-        this.config = configuration.config;
-        this.connection = configuration.connection;
-        this.validator = configuration.validator;
-        this.converter = configuration.converter;
+    public QueryExecutor(CalciteConfiguration calciteConfiguration) {
+        this.config = calciteConfiguration.config;
+        this.connection = calciteConfiguration.connection;
+        this.validator = calciteConfiguration.validator;
+        this.converter = calciteConfiguration.converter;
     }
 
     public SqlNode parse(String sql) {
@@ -59,14 +59,14 @@ public class QueryExecutor {
     }
 
     public SqlNode validate(SqlNode node, boolean allowAggregations) {
-        if (hasBetween(node)) {
+        if (this.hasBetween(node)) {
             String where = replaceBetween(node).replace("`", "\"");
             String query = recreateQuery(node, where);
             return this.validate(query);
         }
 
         if (!allowAggregations && isAggregate(node)) {
-            return this.validate(deAggregateQuery(node));
+            return this.validate(this.deAggregateQuery(node));
         }
 
         return validator.validate(node);
@@ -113,7 +113,7 @@ public class QueryExecutor {
 
     public void execute(RelNode relNode, Consumer<ResultSet> consumer) {
         try {
-            _execute(relNode, consumer);
+            this._execute(relNode, consumer);
         } catch (SQLException e) {
             e.printStackTrace();
         }

@@ -19,13 +19,22 @@ public class CustomTableScan extends EnumerableTableScan {
 
     @Override
     public @Nullable RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        return RelOptCostImpl.FACTORY.makeCost(new Random().nextDouble(200, 10000), 2, 2);
+        return RelOptCostImpl.FACTORY.makeCost(this.randomNumGenerator(200, 10000), 2, 2);
     }
 
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
         //TODO: Proper row counts
-        return new Random().nextDouble(200, 10000);
+        return this.randomNumGenerator(200, 10000);
+    }
+
+    private double randomNumGenerator(double minimum, double maximum) {
+        Random rand = new Random();
+
+        double range = maximum - minimum;
+        double scaled = rand.nextDouble() * range;
+
+        return scaled + minimum;
     }
 
     public static CustomTableScan create(RelOptCluster cluster,

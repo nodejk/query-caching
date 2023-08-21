@@ -28,9 +28,15 @@ public class QueryUtils {
         SqlSelect selectNode = (SqlSelect) node;
 
         if (selectNode.getFrom() instanceof SqlJoin) {
-            return getOperands((SqlJoin) selectNode.getFrom());
+//            System.out.println("returning join node-->"
+//                    + QueryUtils.getOperands((SqlJoin) selectNode.getFrom())
+//            );
+            return QueryUtils.getOperands((SqlJoin) selectNode.getFrom());
         }
 
+//        System.out.println("returning select node-->" +
+//                List.of(((SqlSelect) node).getFrom().toString())
+//        );
         return List.of(((SqlSelect) node).getFrom().toString());
     }
 
@@ -39,7 +45,13 @@ public class QueryUtils {
     private static List<String> getOperands(SqlJoin join) {
         ArrayList<String> calls = new ArrayList<>();
 
-        calls.addAll(join.getOperandList().stream().filter(x -> x instanceof SqlBasicCall).map(SqlNode::toString).toList());
+        calls.addAll(
+                join.getOperandList()
+                .stream().filter(x -> x instanceof SqlBasicCall)
+                        .map((item) -> {
+//                            System.out.println("item--->" + item.toString());
+                            return item.toString();
+                        }).collect(Collectors.toList()));
         join.getOperandList().stream()
                 .filter(x -> x instanceof SqlJoin)
                 .map(j -> getOperands((SqlJoin) j))

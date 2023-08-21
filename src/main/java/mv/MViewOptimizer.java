@@ -1,6 +1,6 @@
 package mv;
 
-import common.Configuration;
+import common.CalciteConfiguration;
 import common.QueryExecutor;
 import common.Utils;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -32,7 +32,7 @@ public class MViewOptimizer {
     private final Prepare.CatalogReader catalogReader;
     private final RelOptCluster cluster;
 
-    public MViewOptimizer(Configuration programConfig) {
+    public MViewOptimizer(CalciteConfiguration programConfig) {
         this.rootSchema = programConfig.rootSchema;
         this.schema = programConfig.schema;
         this.catalogReader = programConfig.catalogReader;
@@ -66,9 +66,16 @@ public class MViewOptimizer {
     }
 
     public RelNode substitute(RelOptMaterialization materialization, RelNode query) {
-//        long t1 = System.currentTimeMillis();
-        List<RelNode> substitutes = new SubstitutionVisitor(canonicalize(materialization.queryRel), canonicalize(query))
+        long t1 = System.currentTimeMillis();
+
+//        System.out.println("substituting---> " + materialization.queryRel.explain() + "-"
+//                + materialization.tableRel.explain());
+
+//        System.out.println("\n [SUBSTITUTING]: " + materialization.queryRel.explain());
+
+        List<RelNode> substitutes = new SubstitutionVisitor(this.canonicalize(materialization.queryRel), this.canonicalize(query))
                 .go(materialization.tableRel);
+
         RelNode node = substitutes.stream().findFirst().map(this::uncanonicalize).orElse(null);
 
         if (node == null) {
@@ -76,8 +83,8 @@ public class MViewOptimizer {
         }
 
 
-//        long t2 = System.currentTimeMillis();
-//        System.out.println("Matching MV with query took " + (t2 - t1) + " ms");
+        long t2 = System.currentTimeMillis();
+        System.out.println("Matching MV with query took " + (t2 - t1) + " ms");
         return node;
     }
 

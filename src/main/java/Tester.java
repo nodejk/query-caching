@@ -2,12 +2,14 @@ import batch.QueryBatcher;
 import batch.data.BatchedQuery;
 import cache.Cache;
 import cache.dim.Dimension;
-import cache.policy.LRUPolicy;
+import cache.policy.lru.LRUPolicy;
 import cache.policy.ReplacementPolicy;
-import common.Configuration;
+import common.CalciteConfiguration;
 import common.QueryExecutor;
 import common.QueryUtils;
 import common.Utils;
+import enums.Mode;
+import enums.QueryType;
 import mv.MViewOptimizer;
 import mv.Materialization;
 import org.apache.calcite.plan.RelOptMaterialization;
@@ -17,9 +19,11 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import test.QueryReader;
+import utils.Configuration;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static common.Logger.logCache;
 import static common.Utils.humanReadable;
@@ -28,15 +32,16 @@ import static org.apache.commons.io.FileUtils.ONE_GB;
 public class Tester {
 
     private final QueryExecutor executor;
-    private final Configuration config;
+    private final CalciteConfiguration calciteConfiguration;
     private final MViewOptimizer optimizer;
 
-//    private final QueryProvider queryProvider;
+    private final Configuration jsonConfiguration;
 
-    public Tester(Configuration config) {
-        this.optimizer = new MViewOptimizer(config);
-        this.executor = new QueryExecutor(config);
-        this.config = config;
+    public Tester(CalciteConfiguration calciteConfiguration, Configuration jsonConfiguration) {
+        this.optimizer = new MViewOptimizer(calciteConfiguration);
+        this.executor = new QueryExecutor(calciteConfiguration);
+        this.calciteConfiguration = calciteConfiguration;
+        this.jsonConfiguration = jsonConfiguration;
 //        this.queryProvider = new QueryProvider();
     }
 
@@ -75,7 +80,7 @@ public class Tester {
     }
 
     public void testBatch() {
-        QueryBatcher queryBatcher = new QueryBatcher(config, executor);
+        QueryBatcher queryBatcher = new QueryBatcher(calciteConfiguration, executor);
 
 //        long t1 = System.currentTimeMillis();
 //        List<BatchedQuery> combined = queryBatcher.batch(queryProvider.getBatch(2));
@@ -162,13 +167,12 @@ public class Tester {
 //                WHERE ("ps_availqty" < 98 AND "ps_partkey" < 98999) OR ("ps_availqty" > 8532 AND "ps_partkey" > 162348)
 //                """);
 
-        List<BatchedQuery> bq = new QueryBatcher(config, executor).batch(queries);
-        System.out.println(Utils.getPrintableSql(bq.get(0).sql));
+        List<BatchedQuery> bq = new QueryBatcher(calciteConfiguration, executor).batch(queries);
     }
 
     public void printQuerySizes() throws IOException {
         List<Long> sizes = new ArrayList<>();
-        List<String> queries = QueryReader.getQueries(20, QueryReader.TYPE_ALL).stream().flatMap(Collection::stream).toList();
+        List<String> queries = QueryReader.getQueries(20, QueryType.ALL).stream().flatMap(Collection::stream).collect(Collectors.toList());
         for (int i = 0; i < queries.size(); i++) {
             System.out.println("============================================");
             System.out.println("Executing " + i);
@@ -185,17 +189,17 @@ public class Tester {
         System.out.println(sizes);
 
         Collections.sort(sizes);
-        List<String> sizeStrings = sizes.stream().map(FileUtils::byteCountToDisplaySize).toList();
+        List<String> sizeStrings = sizes.stream().map(FileUtils::byteCountToDisplaySize).collect(Collectors.toList());
         System.out.println("Sorted readable sizes");
         System.out.println(sizeStrings);
     }
 
     public void testFindDerivablePercentage() throws IOException {
         boolean deAgg = true;
-        List<String> queries = QueryReader.getQueries(10, QueryReader.TYPE_ALL).stream().flatMap(Collection::stream).toList();
+        List<String> queries = QueryReader.getQueries(10, QueryType.ALL).stream().flatMap(Collection::stream).collect(Collectors.toList());
 
-        MViewOptimizer op = new MViewOptimizer(config);
-        QueryExecutor executor = new QueryExecutor(config);
+        MViewOptimizer op = new MViewOptimizer(calciteConfiguration);
+        QueryExecutor executor = new QueryExecutor(calciteConfiguration);
 
         //nextDouble > 0.5 = 35
         //nextDouble > 0.8 = 25
@@ -242,7 +246,7 @@ public class Tester {
     }
 
     public void testDerivabilityPerf() throws IOException {
-        List<String> queries = QueryReader.getQueries(1, QueryReader.TYPE_ALL).stream().flatMap(Collection::stream).toList();
+        List<String> queries = QueryReader.getQueries(1, QueryType.ALL).stream().flatMap(Collection::stream).collect(Collectors.toList());
 
         List<SqlNode> validatedNodes = new ArrayList<>();
         for (int i = 0; i < queries.size(); i++) {
@@ -362,14 +366,14 @@ public class Tester {
 
     }
 
-    public void testCacheSizeMetrics(int size, ReplacementPolicy<RelOptMaterialization> policy) {
-        System.out.println("Setting cache size " + size + " MB");
-        Window window = new Window(config, size, policy, QueryReader.TYPE_ALL);
-        window.run(Main.MODE_HYB);
-    }
+//    public void testCacheSizeMetrics(int size, ReplacementPolicy<RelOptMaterialization> policy) {
+//        System.out.println("Setting cache size " + size + " MB");
+//        Window window = new Window(calciteConfiguration, size, policy, QueryReader.TYPE_ALL);
+//        window.run(Main.MODE_HYB);
+//    }
 
-    public void testMain(int mode, int cacheSizeMB, int queryType) {
-        Window window = new Window(config, cacheSizeMB, new LRUPolicy<>(), queryType);
+    public void testMain(Mode mode, QueryType queryType) {
+        WindowMultiCache window = new WindowMultiCache(this.calciteConfiguration, queryType, this.jsonConfiguration);
         window.run(mode);
     }
 }

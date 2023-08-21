@@ -1,6 +1,7 @@
 package cache;
 
 import cache.dim.Dimension;
+import cache.enums.DimensionType;
 import cache.policy.ReplacementPolicy;
 
 import java.util.ArrayList;
@@ -26,6 +27,23 @@ public class Cache<T> {
     // If dimension is SIZE, then this value is the max allowed size in bytes.
     // If dimension is COUNT, then this value is the size of the list items.
     private long currentCacheSize;
+
+    /**
+     * 3 scenarios:
+     * 1. cache hit (best)
+     * 2. cache miss with empty cache
+     * 3. cache miss with full cache (worst case)
+     *
+     * fix derivability
+     *
+     * use cache size instead of count.
+     *
+     *
+     * benchmark:
+     *  1. time (average time to process query)
+     *
+     * analyzing : time, cache size wrt to caching policy and derivability.
+     */
 
     public Cache(ReplacementPolicy<T> policy, Dimension dimension) {
         this.map = new HashMap<>();
@@ -74,9 +92,9 @@ public class Cache<T> {
     }
 
     private String formatCacheSize() {
-        return dimension.getType() == Dimension.Type.COUNT
-                ? String.valueOf(currentCacheSize) :
-                humanReadable(currentCacheSize);
+        return dimension.getType() == DimensionType.COUNT
+            ? String.valueOf(currentCacheSize) :
+            humanReadable(currentCacheSize);
     }
 
     public Dimension getDimension() {
