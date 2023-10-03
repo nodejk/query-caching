@@ -63,7 +63,7 @@ public abstract class AbstractCachePolicy<T> {
 
     public abstract void removeUnwantedIndexes();
 
-    public void onCacheSizeChange() {
+    public final void onCacheSizeChange() {
         if (this.currentCacheSize > this.dimension.getValue() * this.PRUNE_THRESHOLD) {
             this.clean();
         }
