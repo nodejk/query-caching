@@ -1,10 +1,10 @@
 # Sequential
 
-declare -a cache_type=("mru")
+declare -a cache_type=("fifo" "mru")
 declare -a mode_type=("sequence" "hybrid" "batch" "mvr")
 declare -a cache_sizes=("4" "8" "16" "32" "64" "128" "256" "512" "1024" "2048" "4096")
 declare -a query_type=("all" "complex_filter" "filter_join" "filter_aggregate" "filter_join_aggregate")
-declare -a derivibility_percentages=("0" "10" "20" "25" "35" "40" "45" "60" "75" "78" "83" "88" "90")
+declare -a derivibility_percentages=("10" "25" "45" "75" "90")
 declare -a dimension_types=("size_bytes")
 #for type in {1..5}; do
 #  for der in {0..12}; do
