@@ -141,8 +141,6 @@ public class QueryReader {
                     }
                 }
 
-//                System.out.println("vals---->" + vals);
-
                 queries.add(String.format(template, vals.toArray()));
             }
         }
