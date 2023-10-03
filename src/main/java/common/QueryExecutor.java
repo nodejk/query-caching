@@ -81,16 +81,16 @@ public class QueryExecutor {
     }
 
     public SqlNode validate(String q) {
-        return validate(q, true);
+        return this.validate(q, true);
     }
 
     public RelNode getLogicalPlan(SqlNode node) {
-        RelRoot root = converter.convertQuery(node, false, true);
+        RelRoot root = this.converter.convertQuery(node, false, true);
         return root.rel;
     }
 
     public RelNode getLogicalPlan(String q) {
-        return getLogicalPlan(validate(q));
+        return this.getLogicalPlan(this.validate(q));
     }
 
     public RelNode getPhysicalPlan(RelNode node) {
@@ -121,12 +121,15 @@ public class QueryExecutor {
 
     private void _execute(RelNode relNode, Consumer<ResultSet> consumer) throws SQLException {
         long t1 = System.currentTimeMillis();
-        RelNode physicalNode = getPhysicalPlan(relNode);
+        RelNode physicalNode = this.getPhysicalPlan(relNode);
+
         long physicalTime = System.currentTimeMillis() - t1;
 
         connection.setAutoCommit(false);
         RelRunner runner = connection.unwrap(RelRunner.class);
+
         t1 = System.currentTimeMillis();
+
         PreparedStatement run = runner.prepareStatement(physicalNode);
         run.setFetchSize(10000);
         long compileTime = System.currentTimeMillis() - t1;
