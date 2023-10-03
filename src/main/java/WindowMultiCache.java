@@ -37,6 +37,12 @@ public class WindowMultiCache {
 
     private Configuration configuration;
 
+    /**
+     * just measure the average for each experiment
+     * apache-wayang:
+     *
+     * comparing caching techniques for mqo
+     */
     public WindowMultiCache(
             CalciteConfiguration calciteConfiguration,
             QueryType queryType,
@@ -60,8 +66,21 @@ public class WindowMultiCache {
 
         final long t1 = System.currentTimeMillis();
         for (List<String> qs : this.provider.queries) {
-            System.out.println("===============================================");
-            System.out.printf("%d: (%d)\nNo. of queries: %d\n", count, numQueries, qs.size());
+            long startTime = System.currentTimeMillis();
+
+            System.out.println("START==============================================");
+
+            int count_q = 0;
+            System.out.println("<QUERIES>");
+            for (String q: qs) {
+                System.out.println(count_q + ": " + q);
+
+                count_q++;
+            }
+            System.out.println("</QUERIES>");
+
+
+            System.out.printf("\n[BATCH] %d: (%d)\nNo. of queries: %d\n", count, numQueries, qs.size());
 
             if (count % 5 == 0) {
                 long time = System.currentTimeMillis() - t1 - subtractable - CustomPlanner.diff;
@@ -71,10 +90,17 @@ public class WindowMultiCache {
             count += 1;
             numQueries += qs.size();
 
-            if (mode == Mode.SEQUENCE) runSequentially(qs);
-            else if (mode == Mode.HYBRID) handle(qs);
-            else if (mode == Mode.BATCH) runInBatchMode(qs);
-            else if (mode == Mode.MVR) runInMVRMode(qs);
+            if (mode == Mode.SEQUENCE) this.runSequentially(qs);
+            else if (mode == Mode.HYBRID) this.handle(qs);
+            else if (mode == Mode.BATCH) this.runInBatchMode(qs);
+            else if (mode == Mode.MVR) this.runInMVRMode(qs);
+
+            System.out.println("\n[EXEC]-" +
+                String.format("{ \"num_queries\": \"%d\", \"time_taken\": \"%d\" }",
+                    qs.size(),
+                    (System.currentTimeMillis() - startTime)
+                )
+            );
         }
 
         long time = System.currentTimeMillis() - t1 - subtractable;
@@ -83,7 +109,8 @@ public class WindowMultiCache {
 
     private void runSequentially(List<String> queries) {
         for (String query : queries) {
-            executor.execute(executor.getLogicalPlan(query), null);
+
+            this.executor.execute(this.executor.getLogicalPlan(query), null);
         }
     }
 
@@ -132,7 +159,7 @@ public class WindowMultiCache {
 
     private void runInMVRMode(List<String> queries) {
         for (String query: queries) {
-            runIndividualQuery(query);
+            this.runIndividualQuery(query);
         }
     }
 
@@ -211,14 +238,18 @@ public class WindowMultiCache {
             //TODO: materialized table
             executor.execute(getSubstitution(materialization, logicalPlan), rs -> System.out.println("Executed " + q.replace("\n", " ")));
         } else {
+            long startTime = System.currentTimeMillis();
+
             executor.execute(substituted, rs -> System.out.println("MVS Executed " + q.replace("\n", " ")));
+
+            System.out.println("TIME FOR EXECUTING SINGLE QUERY: " + (System.currentTimeMillis() - startTime));
         }
     }
 
     private void runBatchQueries(List<String> queries) {
         for (int i = queries.size() - 1; i >= 0; i--) {
-            SqlNode validated = executor.validate(queries.get(i));
-            RelNode logical = executor.getLogicalPlan(validated);
+            SqlNode validated = this.executor.validate(queries.get(i));
+            RelNode logical = this.executor.getLogicalPlan(validated);
             RelNode substituted = getSubstitution(validated, logical);
             if (substituted != null) {
                 executor.execute(substituted, rs -> System.out.println("OOB Executed"));
@@ -236,6 +267,8 @@ public class WindowMultiCache {
         List<Integer> batchedIndexes = batched.stream().flatMap(bq -> bq.indexes.stream()).collect(Collectors.toList());
         List<Integer> unbatchedIndexes = IntStream.range(0, queries.size()).boxed().collect(Collectors.toList());
         unbatchedIndexes.removeAll(batchedIndexes);
+
+        System.out.println("FOUND : " + unbatchedIndexes.size() + " unbatchable queries");
         for (int i : unbatchedIndexes) {
             runIndividualQuery(queries.get(i));
         }
@@ -245,9 +278,11 @@ public class WindowMultiCache {
         // If not, then execute the batch queries individually
         // If yes, then it means that the batch query parts can also use that same MV
         // Find substitutions and execute
+//      //
+        long startTime = System.currentTimeMillis();
+
         for (BatchedQuery bq : batched) {
             System.out.println();
-//            System.out.println("Batched SQL: " + Utils.getPrintableSql(bq.sql));
             System.out.println();
             SqlNode validated = executor.validate(bq.sql);
             RelNode plan = executor.getLogicalPlan(validated);
@@ -270,11 +305,9 @@ public class WindowMultiCache {
 
             for (SqlNode partQuery : bq.parts) {
                 RelNode logicalPlan = this.executor.getLogicalPlan(partQuery);
-                System.out.println("logicalPlan---> " + logicalPlan.toString());
                 RelNode partSubstitutable = materialization != null
                         ? this.getSubstitution(materialization, logicalPlan)
                         : this.getSubstitution(partQuery, logicalPlan);
-                System.out.println("2. PARTIAL_SUBS--->" + partQuery.toString());
                 if (partSubstitutable == null) {
                     logError("This shouldn't happen!!!!!! Batch query is substitutable but parts are not. Exec query normally");
                     this.executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
@@ -284,5 +317,7 @@ public class WindowMultiCache {
                 System.out.println();
             }
         }
+
+        long totalTimeTaken = System.currentTimeMillis() - startTime;
     }
 }

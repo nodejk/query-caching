@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class CacheItem<T> {
     protected String key;
-    public int order;
+    private int order;
     protected T item;
     protected long size;
     private long lastAccessTime;
@@ -17,6 +17,10 @@ public class CacheItem<T> {
         this.order = order;
         this.numAccessed = 0;
         this.lastAccessTime = System.currentTimeMillis();
+    }
+
+    public int getOrder() {
+        return this.order;
     }
 
     public CacheItem (String key, T item, long value) {
