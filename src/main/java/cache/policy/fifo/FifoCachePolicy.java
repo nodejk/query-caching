@@ -56,6 +56,8 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
         long currentSize = this.currentCacheSize;
         int removed = 0;
 
+//        System.out.println("BEFORE-->" + this.cache);
+
         Map<String, List<CacheItem<T>>> removableMap = new HashMap<>();
 
         List<Pair<String, CacheItem<T>>> allItems = new LinkedList<>();
@@ -71,12 +73,17 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
 //        System.out.println("------------[UNSORTED_ORDER]---> \n" + allItems);
         List<Integer> sortedByOrder = IntStream.range(0, allItems.size())
                 .boxed()
-                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().order))
+                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getOrder()))
                 .collect(Collectors.toList());
 
 //        System.out.println("");
+
+        List<CacheItem<T>> sorted = allItems.stream().map(Pair::getSecond).sorted(Comparator.comparing(CacheItem::getOrder)).collect(Collectors.toList());
 //
-//        System.out.println("------------[SORTED_ORDER]--->--> \n" + s);
+
+//        System.out.println("-------[sorted_list]----> \n" + sorted);
+//        System.out.println("------------[SORTED_ORDER]--->--> \n" + sortedByOrder);
+
 //        System.out.println("------------[SIZE]--->--> " +  String.format("%d%n", currentSize));
 
         int index = 0;
@@ -84,6 +91,7 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
         while (currentSize > this.cacheSizeThreshold && removed < this.numberOfCacheItems) {
             int cacheItem = sortedByOrder.get(index);
             Pair<String, CacheItem<T>> p = allItems.get(cacheItem);
+
             currentSize -= p.getSecond().getSize();
 
             if (removableMap.containsKey(p.getFirst())) {
@@ -94,13 +102,20 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
                 removableMap.put(p.getFirst(), it);
             }
             removed += 1;
+            index += 1;
         }
+
+//        System.out.println("removables: " + removableMap);
 
         for (Map.Entry<String, List<CacheItem<T>>> entry: removableMap.entrySet()) {
             this.cache.get(entry.getKey()).removeAll(entry.getValue());
             entry.getValue().forEach(cacheItem -> this.currentCacheSize -= cacheItem.getSize());
         }
 
-//        System.out.println("[REMOVED_ITEMS]::" + removed + " [SIZE]: " + currentSize + " [THRESHOLD]: " + String.format("%f", this.cacheSizeThreshold));
+//        System.out.println("[REMOVED_ITEMS]:: " + removed + " [SIZE]: " + currentSize + " [THRESHOLD]: " + this.cacheSizeThreshold);
+//
+//        System.out.println("left-->" + this.cache);
+//        System.exit(1);
+
     }
 }

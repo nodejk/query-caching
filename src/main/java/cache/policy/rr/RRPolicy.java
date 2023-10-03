@@ -81,6 +81,7 @@ public class RRPolicy<T> extends AbstractCachePolicy<T> {
                 removableMap.put(p.getFirst(), it);
             }
             removed += 1;
+            index += 1;
         }
 
         for (Map.Entry<String, List<CacheItem<T>>> entry: removableMap.entrySet()) {

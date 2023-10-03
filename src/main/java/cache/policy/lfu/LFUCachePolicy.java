@@ -64,7 +64,7 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
 
         List<Integer> sortedByOrder = IntStream.range(0, allItems.size())
                 .boxed()
-                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().order))
+                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getNumAccessed()))
                 .collect(Collectors.toList());
 
         int index = 0;
@@ -82,6 +82,7 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
                 removableMap.put(p.getFirst(), it);
             }
             removed += 1;
+            index += 1;
         }
 
         for (Map.Entry<String, List<CacheItem<T>>> entry: removableMap.entrySet()) {
