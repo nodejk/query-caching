@@ -23,7 +23,7 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
             return new ArrayList<>();
         }
 
-        return this.cache.getOrDefault(key, null)
+        return this.cache.get(key)
             .stream()
             .map(CacheItem::getItem)
             .collect(Collectors.toList());

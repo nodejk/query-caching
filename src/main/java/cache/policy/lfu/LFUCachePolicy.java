@@ -39,10 +39,10 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
             return new ArrayList<>();
         }
 
-        return this.cache.getOrDefault(key, null)
-                .stream()
-                .map(CacheItem::getItem)
-                .collect(Collectors.toList());
+        return this.cache.get(key)
+            .stream()
+            .map(CacheItem::getItem)
+            .collect(Collectors.toList());
     }
 
     @Override
