@@ -35,6 +35,10 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
 
     @Override
     public List<T> get(String key) {
+        if (!this.cache.containsKey(key)) {
+            return new ArrayList<>();
+        }
+
         return this.cache.getOrDefault(key, null)
                 .stream()
                 .map(CacheItem::getItem)
