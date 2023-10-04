@@ -42,7 +42,6 @@ def build_experiment_graph(root_path, experiment, mode, cache_size, query_type, 
 
 
 def get_derivatives(args, root_path):
-
     all_constants = []
     all_variables = []
     var_key = None
@@ -60,7 +59,6 @@ def get_derivatives(args, root_path):
 
     args['derivatives'] = ['10', '25', '45', '75', '90']
 
-    print('valll-->', all_variables)
 
     if len(all_variables) != 1:
         raise Exception('only one var allowed')
@@ -73,44 +71,38 @@ def get_derivatives(args, root_path):
     return all_derivatives, {'var_key': var_key, 'variables': all_variables[0]}
 
 
-def generate_graph(args, root_path):
+def generate_graph(args, root_path, output_path):
+
+    fixed_keys_values = [key + " : " + str(args[key]) for key in args.keys() if key not in ['derivatives']]
+
     derivatives_parsed, var_args = get_derivatives(args, root_path)
 
     var_key = var_args['var_key']
     variables = var_args['variables']
 
-    print('derivatives_parsed-->', len(derivatives_parsed))
+    graph_path = ", ".join(fixed_keys_values)
 
-    create_graph(args, var_key, variables, args['derivatives'], derivatives_parsed)
+    graph_path = os.path.join(output_path, graph_path)
+
+    if not os.path.isdir(graph_path):
+        os.mkdir(graph_path)
+
+    create_graph(args, var_key, variables, args['derivatives'], derivatives_parsed, graph_path)
+
 
 if __name__ == '__main__':
-
-    # create_graph(
-    # {
-    #     'experiment': "fifo",
-    #     'mode': "sequence",
-    #     'cache_sizes': ['4', '8'],
-    #     'query_type': 'all',
-    #     'derivative': '10',
-    # }, )
-
     ROOT_EXPERIMENT_PATH = '/home/blackplague/IdeaProjects/query-caching/experiments'
 
-    # derivatives = get_derivatives({
-    #     'experiment': 'fifo',
-    #     'mode': 'sequence',
-    #     'cache_size': ['4', '8'],
-    #     'query_type': 'all',
-    # }, ROOT_EXPERIMENT_PATH)
+    OUTPUT_PATH = '/home/blackplague/IdeaProjects/query-caching/analysis/findings'
 
     generate_graph({
-        'experiment': 'fifo',
-        'mode': ['sequence', 'hybrid', 'mvr'],
-        # 'cache_size': ['4', '8', '16', '32'],
-        'cache_size': '4',
-        'query_type': 'all',
-    }, ROOT_EXPERIMENT_PATH)
-
+        'experiment': ['fifo', 'rr'],
+        # 'mode': ['sequence', 'hybrid', 'mvr'],
+        'mode': 'batch',
+        # 'cache_size': ['8', '64', '256', '512', '1024', '4096'],
+        'cache_size': '2048',
+        'query_type': 'filter_join_aggregate',
+    }, ROOT_EXPERIMENT_PATH, OUTPUT_PATH)
 
     # experiment_types = ['fifo', 'mru']
     #

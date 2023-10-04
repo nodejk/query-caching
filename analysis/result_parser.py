@@ -73,6 +73,9 @@ class ResultFileParser:
             numpy.array([item.get_num_queries() for item in self._execs_info])
         )
 
+    def get_execs_count(self):
+        return len(self._execs_info)
+
     def get_all_execs_info(self):
         return self._execs_info
 
@@ -88,6 +91,9 @@ class ResultFileParser:
 
         self._execs_info = []
         self._derivative = derivative
+
+
+        print('file_path-->', file_path)
 
         with open(file_path, 'r') as f:
             lines = f.readlines()
@@ -123,6 +129,8 @@ class ResultFileParser:
 
                 else:
                     index += 1
+
+        print('self._execs_info---->', len(self._execs_info), ' derivative-->', derivative)
         pass
 
 
@@ -163,15 +171,15 @@ class DerivativeDirParser:
             )
 
 
-def define_box_properties(plot_name, color_code, label):
+def define_box_properties(ax, plot_name, color_code, label):
     for k, v in plot_name.items():
         plt.setp(plot_name.get(k), color=color_code)
 
     # use plot function to draw a small line to name the legend.
-    plt.plot([], c=color_code, label=label)
-    plt.legend()
+    ax.plot([], c=color_code, label=label)
+    ax.legend()
 
-def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typing.List[DerivativeDirParser]):
+def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typing.List[DerivativeDirParser], graph_path):
 
     fig, ax = plt.subplots()
 
@@ -182,18 +190,27 @@ def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typi
     )
 
     shift = 0
+
+    fig_count, ax_count = plt.subplots()
+
+
     for i, derivative_par in enumerate(derivatives_parsed):
 
         label = derivative_par.get_meta_data()[var_key]
 
         derivative_data = []
+        all_query_counts = []
 
         for deriv in derivatives:
             derivat_par = [item for item in derivative_par.experiment_results if item.get_derivative() == deriv][0]
 
+            all_query_counts.append(derivat_par.get_execs_count())
+
             derivative_data.append([item.get_time_taken() for item in derivat_par.get_all_execs_info()])
 
-        derivative_box_plot = plt.boxplot(
+        ax_count.plot(derivatives, all_query_counts, color=sorted_colors[i], label=label)
+
+        derivative_box_plot = ax.boxplot(
             derivative_data,
             positions=numpy.array(numpy.arange(len(derivative_data))) * 2 + shift,
             widths=0.5,
@@ -204,12 +221,12 @@ def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typi
 
         shift += 0.35
 
-        define_box_properties(derivative_box_plot, sorted_colors[i], label)
+        define_box_properties(ax, derivative_box_plot, sorted_colors[i], label)
 
-    plt.xticks(numpy.arange(0, len(derivatives) * 2, 2), derivatives)
-
+    ax.set_xticks(numpy.arange(0, len(derivatives) * 2, 2), derivatives)
 
     ax.legend()
+    ax_count.legend()
 
     ax.set_title(
         f"cache type: {args['experiment']} "
@@ -225,7 +242,10 @@ def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typi
     f"cache_size: {args['cache_size']}"
     f"query_type: {args['query_type']}"
 
-    fig.savefig('./test.png', dpi=120)
+    fig.savefig(f'{graph_path}/result.png', dpi=120)
+
+
+    fig_count.savefig(f'{graph_path}/result_count.png', dpi=120)
 
     pass
 
