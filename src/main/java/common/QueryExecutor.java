@@ -51,7 +51,7 @@ public class QueryExecutor {
 
         try {
             return parser.parseStmt();
-        } catch (SqlParseException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -114,36 +114,47 @@ public class QueryExecutor {
     public void execute(RelNode relNode, Consumer<ResultSet> consumer) {
         try {
             this._execute(relNode, consumer);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private void _execute(RelNode relNode, Consumer<ResultSet> consumer) throws SQLException {
-        long t1 = System.currentTimeMillis();
-        RelNode physicalNode = this.getPhysicalPlan(relNode);
+        try {
+            long t1 = System.currentTimeMillis();
+            RelNode physicalNode = this.getPhysicalPlan(relNode);
 
-        long physicalTime = System.currentTimeMillis() - t1;
+            long physicalTime = System.currentTimeMillis() - t1;
 
-        connection.setAutoCommit(false);
-        RelRunner runner = connection.unwrap(RelRunner.class);
+            connection.setAutoCommit(false);
+            RelRunner runner = connection.unwrap(RelRunner.class);
 
-        t1 = System.currentTimeMillis();
+            t1 = System.currentTimeMillis();
 
-        PreparedStatement run = runner.prepareStatement(physicalNode);
-        run.setFetchSize(10000);
-        long compileTime = System.currentTimeMillis() - t1;
+            System.out.println("physicalNode: " + this.connection.config());
 
-        t1 = System.currentTimeMillis();
-        run.execute();
-        long execTime = System.currentTimeMillis() - t1;
+            PreparedStatement run = runner.prepareStatement(physicalNode);
+            run.setFetchSize(10000);
+            long compileTime = System.currentTimeMillis() - t1;
 
-        System.out.printf("\nPlan: %dms, Compile: %dms, Exec: %dms\n", physicalTime, compileTime, execTime);
+            t1 = System.currentTimeMillis();
+            run.execute();
+            long execTime = System.currentTimeMillis() - t1;
 
-        ResultSet rs = run.getResultSet();
-        if (consumer != null) consumer.accept(rs);
-        run.close();
-        rs.close();
+            System.out.printf("\nPlan: %dms, Compile: %dms, Exec: %dms\n", physicalTime, compileTime, execTime);
+
+            ResultSet rs = run.getResultSet();
+
+            if (consumer != null) {
+                consumer.accept(rs);
+            }
+
+            run.close();
+            rs.close();
+        } catch (Throwable e) {
+
+        }
+
     }
 
     private boolean hasBetween(SqlNode node) {

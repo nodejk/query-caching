@@ -2,9 +2,11 @@ import batch.QueryBatcher;
 import batch.data.BatchedQuery;
 import cache.enums.DimensionType;
 import cache.models.AbstractCachePolicy;
+import cache.models.CacheItem;
 import common.*;
 import enums.Mode;
 import enums.QueryType;
+import kotlin.Pair;
 import mv.MViewOptimizer;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.RelNode;
@@ -13,7 +15,10 @@ import org.apache.commons.lang3.StringUtils;
 import test.QueryProvider;
 import utils.CacheBuilder;
 import utils.Configuration;
+import utils.WindowRunUtils;
+import utils.WindowRunUtilsList;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -37,6 +42,8 @@ public class WindowMultiCache {
 
     private Configuration configuration;
 
+    private WindowRunUtilsList windowRunUtilsList;
+
     /**
      * just measure the average for each experiment
      * apache-wayang:
@@ -58,6 +65,8 @@ public class WindowMultiCache {
 
         CacheBuilder<RelOptMaterialization> cacheBuilder = new CacheBuilder<>();
 
+        this.windowRunUtilsList = new WindowRunUtilsList();
+
         this.cache = cacheBuilder.build(configuration);
     }
 
@@ -65,74 +74,100 @@ public class WindowMultiCache {
         int count = 0, numQueries = 0;
 
         final long t1 = System.currentTimeMillis();
-        for (List<String> qs : this.provider.queries) {
-            long startTime = System.currentTimeMillis();
 
-            System.out.println("START==============================================");
+        for (int qIdx = 0; qIdx < this.provider.queries.size(); qIdx++) {
+            System.out.println(String.format("qIdx: %d/%d", qIdx + 1, this.provider.queries.size()));
 
-            int count_q = 0;
-            System.out.println("<QUERIES>");
-            for (String q: qs) {
-                System.out.println(count_q + ": " + q);
+            List<String> qs = this.provider.queries.get(qIdx);
 
-                count_q++;
+            try {
+                long startTime = System.currentTimeMillis();
+
+                System.out.println("START==============================================");
+
+                int count_q = 0;
+                System.out.println("<QUERIES>");
+                for (String q: qs) {
+                    System.out.println(count_q + ": " + q);
+
+                    count_q++;
+                }
+                System.out.println("</QUERIES>");
+
+                WindowRunUtils tempUtils = new WindowRunUtils();
+
+                System.out.printf("\n[BATCH] %d: (%d)\nNo. of queries: %d\n", count, numQueries, qs.size());
+
+                if (count % 5 == 0) {
+                    long time = System.currentTimeMillis() - t1 - subtractable - CustomPlanner.diff;
+                    logTime(String.format("Executed: %d: (%d) in %d ms", count, numQueries, time));
+                }
+
+                count += 1;
+                numQueries += qs.size();
+
+                tempUtils.incrementNumberOfQueries(numQueries);
+
+                if (mode == Mode.SEQUENCE) this.runSequentially(qs, tempUtils);
+                else if (mode == Mode.HYBRID) this.handle(qs, tempUtils);
+                else if (mode == Mode.BATCH) this.runInBatchMode(qs, tempUtils);
+                else if (mode == Mode.MVR) this.runInMVRMode(qs, tempUtils);
+
+                System.out.println(tempUtils);
+
+                System.out.println("\n[EXEC]-" +
+                        String.format("{ \"num_queries\": \"%d\", \"time_taken\": \"%d\" }",
+                                qs.size(),
+                                (System.currentTimeMillis() - startTime)
+                        )
+                );
+
+                this.windowRunUtilsList.addNewItem(tempUtils);
+
+            } catch (Exception | Error e) {
+                logError("{\"CANNOT_RUN_QUERIES\": " + qs + "}");
             }
-            System.out.println("</QUERIES>");
 
-
-            System.out.printf("\n[BATCH] %d: (%d)\nNo. of queries: %d\n", count, numQueries, qs.size());
-
-            if (count % 5 == 0) {
-                long time = System.currentTimeMillis() - t1 - subtractable - CustomPlanner.diff;
-                logTime(String.format("Executed: %d: (%d) in %d ms", count, numQueries, time));
-            }
-
-            count += 1;
-            numQueries += qs.size();
-
-            if (mode == Mode.SEQUENCE) this.runSequentially(qs);
-            else if (mode == Mode.HYBRID) this.handle(qs);
-            else if (mode == Mode.BATCH) this.runInBatchMode(qs);
-            else if (mode == Mode.MVR) this.runInMVRMode(qs);
-
-            System.out.println("\n[EXEC]-" +
-                String.format("{ \"num_queries\": \"%d\", \"time_taken\": \"%d\" }",
-                    qs.size(),
-                    (System.currentTimeMillis() - startTime)
-                )
-            );
         }
 
         long time = System.currentTimeMillis() - t1 - subtractable;
         logTime("Stopping... Time: " + time + " ms, Time no sub: " + (System.currentTimeMillis() - t1) + " ms");
     }
 
-    private void runSequentially(List<String> queries) {
-        for (String query : queries) {
+    private void runSequentially(List<String> queries, WindowRunUtils windowRunUtils) {
 
-            this.executor.execute(this.executor.getLogicalPlan(query), null);
+        for (String query : queries) {
+            try {
+                this.executor.execute(this.executor.getLogicalPlan(query), null);
+            } catch (Exception e) {
+                continue;
+            }
         }
     }
 
-    private void runInBatchMode(List<String> queries) {
+    private void runInBatchMode(List<String> queries, WindowRunUtils utils) {
         System.out.println("Batching queries:");
+
         for (String query : queries) {
             System.out.println(Utils.getPrintableSql(query) + "\n");
         }
 
-        List<BatchedQuery> batched = batcher.batch(queries);
+        List<BatchedQuery> batched = this.batcher.batch(queries);
 
         // Find out all the queries from the list that couldn't be batched and run them individually
         List<Integer> batchedIndexes = batched.stream().flatMap(bq -> bq.indexes.stream()).collect(Collectors.toList());
         List<Integer> unbatchedIndexes = IntStream.range(0, queries.size()).boxed().collect(Collectors.toList());
         unbatchedIndexes.removeAll(batchedIndexes);
+
         for (int i : unbatchedIndexes) {
             executor.execute(executor.getLogicalPlan(queries.get(i)), null);
         }
 
         for (BatchedQuery bq : batched) {
             System.out.println();
-//            System.out.println("Batched SQL: " + Utils.getPrintableSql(bq.sql));
+
+            System.out.println("Batched SQL: " + Utils.getPrintableSql(bq.sql));
+
             System.out.println();
             SqlNode validated = executor.validate(bq.sql);
             RelNode plan = executor.getLogicalPlan(validated);
@@ -142,14 +177,22 @@ public class WindowMultiCache {
             for (SqlNode partQuery : bq.parts) {
                 RelNode logicalPlan = executor.getLogicalPlan(partQuery);
                 RelNode partSubstitutable = materialization != null
-                        ? getSubstitution(materialization, logicalPlan)
-                        : getSubstitution(partQuery, logicalPlan);
+                        ? this.getSubstitution(materialization, logicalPlan)
+                        : this.getSubstitution(partQuery, logicalPlan, utils);
 
                 if (partSubstitutable == null) {
                     logError("This shouldn't happen!!!!!! Batch query is substitutable but parts are not. Exec query normally");
-                    executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
+
+                    System.out.println("Executing... " + partQuery.toString());
+                    try {
+
+                        executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
+                    } catch (Exception e) {
+
+                    }
                     continue;
                 }
+
                 executor.execute(partSubstitutable, rs -> System.out.println("MVS Part Executed " + bq.sql));
                 System.out.println();
             }
@@ -157,46 +200,64 @@ public class WindowMultiCache {
 
     }
 
-    private void runInMVRMode(List<String> queries) {
+    private void runInMVRMode(List<String> queries, WindowRunUtils utils) {
         for (String query: queries) {
-            this.runIndividualQuery(query);
+            this.runIndividualQuery(query, utils);
         }
     }
 
-    private void handle(List<String> queries) {
+    private void handle(List<String> queries, WindowRunUtils utils) {
         if (queries.size() == 1) {
-            runIndividualQuery(queries.get(0));
+            this.runIndividualQuery(queries.get(0), utils);
         } else {
-            runBatchQueries(queries);
+            this.runBatchQueries(queries, utils);
         }
     }
 
     Random r = new Random(141221);
 
     //TODO: Move canonicalize outside the loop
-    private RelNode getSubstitution(SqlNode validated, RelNode logicalPlan) {
-        String key = getKey(validated);
-        List<RelOptMaterialization> possibles = this.cache.get(key);
+    private RelNode getSubstitution(SqlNode validated, RelNode logicalPlan, WindowRunUtils utils) {
+        String key = this.getKey(validated);
+
+        System.out.println("Substitution: " + validated.toString());
+        List<Pair<String, RelOptMaterialization>> possibles = new LinkedList<>();
+
+        this.cache.getAllItemsForRead(key).stream().forEach((RelOptMaterialization item) -> {
+           possibles.add(new Pair<>(key, item));
+        });
 
         String[] spl = StringUtils.splitByWholeSeparator(key, ",");
         for (String splPart : spl) {
-            possibles.addAll(this.cache.get(splPart));
+
+
+            this.cache.getAllItemsForRead(splPart).stream().forEach((RelOptMaterialization item) -> {
+                possibles.add(new Pair<>(key, item));
+            });
+
+
         }
 
-//        System.out.println("--[FOUND_POSSIBLE_SUBTITUTIONS] \n-------" + possibles);
+//        System.out.println("--[FOUND_POSSIBLE_SUBSTITUTIONS] \n-------" + possibles);
 
-        for (RelOptMaterialization materialization : possibles) {
+        for (Pair<String, RelOptMaterialization> item : possibles) {
+
+            String _key = item.getFirst();
+            RelOptMaterialization materialization = item.getSecond();
+
+
             RelNode substituted = this.optimizer.substitute(materialization, logicalPlan);
 
             if (substituted != null) {
                 if (
                         this.configuration.lowerDerivability == 0 ||
-                                r.nextDouble() > this.configuration.lowerDerivability
+                        r.nextDouble() > this.configuration.lowerDerivability
                 ) {
                     System.out.println();
                     System.out.println(this.configuration.lowerDerivability == 0 ? "DIR RET" : "COMP");
-                    System.out.println();
-//                    System.exit(1);
+
+                    this.cache.get(_key);
+                    utils.incrementNumberTotalCacheHitByOne();
                     return substituted;
                 }
             }
@@ -212,15 +273,13 @@ public class WindowMultiCache {
         return optimizer.substitute(materialization, logicalPlan);
     }
 
-    private void runIndividualQuery(String q) {
-//        System.out.println("[NORMAL_EXEC] \n" + Utils.getPrintableSql(q));
+    private void runIndividualQuery(String q, WindowRunUtils utils) {
 
         SqlNode validated = this.executor.validate(q);
         RelNode logicalPlan = this.executor.getLogicalPlan(validated);
-        RelNode substituted = this.getSubstitution(validated, logicalPlan);
+        RelNode substituted = this.getSubstitution(validated, logicalPlan, utils);
 
         if (substituted == null) {
-//            System.out.println("[CREATING_MV] \n " + Utils.getPrintableSql(q) + "\n");
             RelOptMaterialization materialization = optimizer.materialize(q, logicalPlan);
 
             long t1 = System.currentTimeMillis();
@@ -236,9 +295,12 @@ public class WindowMultiCache {
             this.cache.add(key, materialization, value);
             //TODO: Profile this, is this executed again? If so, find a way to extract results from
             //TODO: materialized table
-            executor.execute(getSubstitution(materialization, logicalPlan), rs -> System.out.println("Executed " + q.replace("\n", " ")));
+            executor.execute(this.getSubstitution(materialization, logicalPlan), rs -> System.out.println("Executed " + q.replace("\n", " ")));
         } else {
+
             long startTime = System.currentTimeMillis();
+
+            System.out.println("substituted: " + substituted.toString());
 
             executor.execute(substituted, rs -> System.out.println("MVS Executed " + q.replace("\n", " ")));
 
@@ -246,11 +308,13 @@ public class WindowMultiCache {
         }
     }
 
-    private void runBatchQueries(List<String> queries) {
+    private void runBatchQueries(List<String> queries, WindowRunUtils utils) {
         for (int i = queries.size() - 1; i >= 0; i--) {
             SqlNode validated = this.executor.validate(queries.get(i));
             RelNode logical = this.executor.getLogicalPlan(validated);
-            RelNode substituted = getSubstitution(validated, logical);
+
+            RelNode substituted = this.getSubstitution(validated, logical, utils);
+
             if (substituted != null) {
                 executor.execute(substituted, rs -> System.out.println("OOB Executed"));
                 queries.remove(i);
@@ -269,8 +333,9 @@ public class WindowMultiCache {
         unbatchedIndexes.removeAll(batchedIndexes);
 
         System.out.println("FOUND : " + unbatchedIndexes.size() + " unbatchable queries");
+
         for (int i : unbatchedIndexes) {
-            runIndividualQuery(queries.get(i));
+            this.runIndividualQuery(queries.get(i), utils);
         }
 
         // Execute batched queries
@@ -286,7 +351,9 @@ public class WindowMultiCache {
             System.out.println();
             SqlNode validated = executor.validate(bq.sql);
             RelNode plan = executor.getLogicalPlan(validated);
-            RelNode substitutable = getSubstitution(validated, plan);
+
+            RelNode substitutable = this.getSubstitution(validated, plan, utils);
+
             RelOptMaterialization materialization = null;
             if (substitutable == null) {
                 materialization = this.optimizer.materialize(bq.sql, plan);
@@ -307,10 +374,16 @@ public class WindowMultiCache {
                 RelNode logicalPlan = this.executor.getLogicalPlan(partQuery);
                 RelNode partSubstitutable = materialization != null
                         ? this.getSubstitution(materialization, logicalPlan)
-                        : this.getSubstitution(partQuery, logicalPlan);
+                        : this.getSubstitution(partQuery, logicalPlan, utils);
+
                 if (partSubstitutable == null) {
                     logError("This shouldn't happen!!!!!! Batch query is substitutable but parts are not. Exec query normally");
-                    this.executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
+
+                    try {
+                        this.executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
+                    } catch (Exception e) {
+                        continue;
+                    }
                     continue;
                 }
                 this.executor.execute(partSubstitutable, rs -> System.out.println("MVS Part Executed " + bq.sql));

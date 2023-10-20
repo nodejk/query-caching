@@ -3,6 +3,7 @@ package utils;
 import cache.models.AbstractCachePolicy;
 import cache.policy.fifo.FifoCachePolicy;
 import cache.policy.lfu.LFUCachePolicy;
+import cache.policy.lru.LRUPolicy;
 import cache.policy.mru.MRUPolicy;
 import cache.policy.rr.RRPolicy;
 
@@ -21,6 +22,9 @@ public class CacheBuilder<T> {
             }
             case MRU: {
                 return new MRUPolicy<>(configuration.getDimension());
+            }
+            case LRU: {
+                return new LRUPolicy<>(configuration.getDimension());
             }
             default: {
                 throw new Error("can not resolve cache type: " + configuration.cacheType);

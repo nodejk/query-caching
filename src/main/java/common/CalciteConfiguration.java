@@ -7,6 +7,7 @@ import org.apache.calcite.avatica.util.Casing;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
+import org.apache.calcite.interpreter.Bindables;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -112,14 +113,14 @@ public class CalciteConfiguration {
 
         planner.addRule(PruneEmptyRules.PROJECT_INSTANCE);
         planner.addRule(CoreRules.AGGREGATE_REDUCE_FUNCTIONS);
-//        planner.addRule(Bindables.BINDABLE_SORT_RULE);
-//        planner.addRule(Bindables.BINDABLE_VALUES_RULE);
-//        planner.addRule(Bindables.BINDABLE_PROJECT_RULE);
-//        planner.addRule(Bindables.BINDABLE_FILTER_RULE);
-//        planner.addRule(Bindables.BINDABLE_TABLE_SCAN_RULE);
-//        planner.addRule(Bindables.BINDABLE_JOIN_RULE);
-//        planner.addRule(Bindables.FROM_NONE_RULE);
-//        planner.addRule(EnumerableRules.TO_BINDABLE);
+        planner.addRule(Bindables.BINDABLE_SORT_RULE);
+        planner.addRule(Bindables.BINDABLE_VALUES_RULE);
+        planner.addRule(Bindables.BINDABLE_PROJECT_RULE);
+        planner.addRule(Bindables.BINDABLE_FILTER_RULE);
+        planner.addRule(Bindables.BINDABLE_TABLE_SCAN_RULE);
+        planner.addRule(Bindables.BINDABLE_JOIN_RULE);
+        planner.addRule(Bindables.FROM_NONE_RULE);
+        planner.addRule(EnumerableRules.TO_BINDABLE);
 //
         EnumerableRules.rules().stream()
                 .filter(rule -> rule != EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)

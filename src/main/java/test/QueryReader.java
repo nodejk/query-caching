@@ -189,7 +189,7 @@ public class QueryReader {
         var complexFilterIndexes = List.of(0, 1, 2, 8, 9);
         var filterJoinIndexes = List.of(3, 4, 5, 6, 7);
         var filterAggregateIndexes = List.of(10, 11, 12, 13, 14, 15, 16);
-        var filterJoinAggregateIndexes = List.of(17, 18, 19, 20, 21, 22, 23);
+        List<Integer> filterJoinAggregateIndexes = List.of(17, 18, 19, 20, 21, 22, 23);
         
         if (type == QueryType.ALL) {
             return queries;

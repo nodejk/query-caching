@@ -11,30 +11,21 @@ import java.util.stream.IntStream;
 import static common.Logger.logCache;
 
 public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
-    protected Map<String, List<CacheItem<T>>> cache;
     public FifoCachePolicy(Dimension dimension) {
         super(dimension);
 //        System.out.println("[SIZE_BYES]: " + this.dimension.getValue());
         this.cache = new HashMap<>();
     }
 
-    public List<T> get(String key) {
-        if (!this.cache.containsKey(key)) {
-            return new ArrayList<>();
-        }
-
-        return this.cache.get(key)
-            .stream()
-            .map(CacheItem::getItem)
-            .collect(Collectors.toList());
+    @Override
+    public long comparator(CacheItem<T> item) {
+        return item.getOrder();
     }
 
     public void add(String key, T item, long itemSize) {
         if (this.cache.containsKey(key)) {
-//            System.out.println("[FOUND_KEY]: " + key);
             this.cache.get(key).add(new CacheItem<T>(key, item, itemSize, this.numberOfCacheItems));
         } else {
-//            System.out.println("[ADDING_KEY] " + key + " [WITH_SIZE] " + itemSize);
             ArrayList<CacheItem<T>> index = new ArrayList<>();
             index.add(new CacheItem<>(key, item, itemSize, this.numberOfCacheItems));
             this.cache.put(key, index);
@@ -52,7 +43,15 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
 //        System.exit(1);
     }
 
-    public void removeUnwantedIndexes() {
+    @Override
+    public List<Integer> getOrderedIndex(List<Pair<String, CacheItem<T>>> allItems) {
+        return IntStream.range(0, allItems.size())
+                .boxed()
+                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getOrder()))
+                .collect(Collectors.toList());
+    }
+
+    public void _removeUnwantedIndexes() {
         long currentSize = this.currentCacheSize;
         int removed = 0;
 

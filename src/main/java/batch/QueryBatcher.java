@@ -135,7 +135,7 @@ public class QueryBatcher {
                     table.get(i).add(rs.getObject(i + 1));
                 }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

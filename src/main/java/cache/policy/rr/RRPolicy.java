@@ -7,9 +7,9 @@ import kotlin.Pair;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class RRPolicy<T> extends AbstractCachePolicy<T> {
-    protected Map<String, List<CacheItem<T>>> cache;
     public RRPolicy(Dimension dimension) {
         super(dimension);
         this.currentCacheSize = 0;
@@ -17,20 +17,15 @@ public class RRPolicy<T> extends AbstractCachePolicy<T> {
         this.cache = new HashMap<>();
     }
 
+    @Override
+    public long comparator(CacheItem<T> item) {
+        System.exit(1);
+        return 0;
+    }
+
     /*
         @TODO: fix this for other get functions.
      */
-    public List<T> get(String key) {
-        if (!this.cache.containsKey(key)) {
-            return new ArrayList<>();
-        }
-
-        return this.cache.get(key)
-            .stream()
-            .map(CacheItem::getItem)
-            .collect(Collectors.toList());
-    }
-
     public void add(String key, T item, long itemSize) {
         if (this.cache.containsKey(key)) {
             this.cache.get(key).add(new CacheItem<T>(key, item, itemSize, this.numberOfCacheItems));
@@ -49,7 +44,16 @@ public class RRPolicy<T> extends AbstractCachePolicy<T> {
         this.removeUnwantedIndexes();
     }
 
-    public void removeUnwantedIndexes() {
+    @Override
+    public List<Integer> getOrderedIndex(List<Pair<String, CacheItem<T>>> allItems) {
+        List<Integer> test = IntStream.range(0, allItems.size()).boxed().collect(Collectors.toList());
+
+        Collections.shuffle(test);
+
+        return test;
+    }
+
+    public void _removeUnwantedIndexes() {
         long currentSize = this.currentCacheSize;
         int removed = 0;
 

@@ -1,6 +1,6 @@
 # Sequential
 
-declare -a cache_type=("fifo" "mru")
+declare -a cache_type=("mru" "rr" "lru" "fifo" "lfu")
 declare -a mode_type=("sequence" "hybrid" "batch" "mvr")
 declare -a cache_sizes=("4" "8" "16" "32" "64" "128" "256" "512" "1024" "2048" "4096")
 declare -a query_type=("all" "complex_filter" "filter_join" "filter_aggregate" "filter_join_aggregate")
@@ -17,7 +17,7 @@ declare -a dimension_types=("size_bytes")
 #  done
 #done
 
-#psql -U root -> create database root;
+  #psql -U root -> create database root;
 #psql databasename < data_base_dump
 
 for cache in "${cache_type[@]}"; do
@@ -68,7 +68,14 @@ for cache in "${cache_type[@]}"; do
             -------------------------------------------
             "
 
-            gradle run --args="$cache $mode $cache_size $query $derivibility $dimension" > "$FINAL_FOLDER/result.txt"
+#            sudo docker compose -f /home/blackplague/docker-databases/mvo-tpc/docker-compose.yaml up
+#              java -jar build/libs/mqo-1.0-SNAPSHOT.jar $cache $mode $cache_size $query $derivibility $dimension
+             ./gradlew run --args="$cache $mode $cache_size $query $derivibility $dimension" --no-watch-fs --warning-mode=none > "$FINAL_FOLDER/result.txt"
+
+#            gradle run --args="$cache $mode $cache_size $query $derivibility $dimension" > "$FINAL_FOLDER/result.txt"
+              sudo -S service postgresql restart
+
+#            sudo docker exec -it mvo-tpc-vm-1 psql -U root -c 'SELECT pg_reload_conf()';
           done
         done
       done

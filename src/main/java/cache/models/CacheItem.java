@@ -32,8 +32,14 @@ public class CacheItem<T> {
     }
 
     public T getItem() {
+        System.out.println("GETTING FROM CACHE");
+
         this.lastAccessTime = System.currentTimeMillis();
         this.incrementNumAccessed();
+        return this.item;
+    }
+
+    public T getItemForRead() {
         return this.item;
     }
 

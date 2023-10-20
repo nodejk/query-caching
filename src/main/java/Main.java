@@ -7,15 +7,15 @@ import java.util.List;
 
 public class Main {
 
-    public static final int MODE_SEQ = 0;
-    public static final int MODE_HYB = 1;
-    public static final int MODE_BAT = 2;
-    public static final int MODE_MVR = 3;
-
-    public static double lowerDerVal = 0;
-
-    public static final List<Integer> CACHE_SIZES = List.of(4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096);
-    public static final List<String> DERIVABILITIES = List.of("0", "10", "20", "25", "35", "40", "45", "60", "75", "78", "83", "88", "90");
+//    public static final int MODE_SEQ = 0;
+//    public static final int MODE_HYB = 1;
+//    public static final int MODE_BAT = 2;
+//    public static final int MODE_MVR = 3;
+//
+//    public static double lowerDerVal = 0;
+//
+//    public static final List<Integer> CACHE_SIZES = List.of(4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096);
+//    public static final List<String> DERIVABILITIES = List.of("0", "10", "20", "25", "35", "40", "45", "60", "75", "78", "83", "88", "90");
 
     /*
     The execution is managed by command line arguments
@@ -28,6 +28,7 @@ public class Main {
      */
 
     public static void main(String[] args) throws Exception {
+
         String cacheType = args[0];
         String mode = args[1];
         Integer cacheSize = Integer.parseInt(args[2]);
@@ -50,8 +51,11 @@ public class Main {
         QueryReader.dir = config.derivability.toString();
         QueryReader.folderName = config.cacheType.toString();
 
-        Tester tester = new Tester(calciteConfiguration, config);
 //
+        Tester tester = new Tester(calciteConfiguration, config);
+//        tester.testDerivabilityPerfRun();
+        System.out.println("Current JVM version - " + System.getProperty("java.version"));
+
         tester.testMain(config.mode, config.queryType);
 //        hideLoggerWarnings();
 //

@@ -11,13 +11,16 @@ import java.util.stream.IntStream;
 
 
 public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
-
-    protected Map<String, List<CacheItem<T>>> cache;
-
     public LFUCachePolicy(Dimension dimension) {
         super(dimension);
         this.cache = new HashMap<>();
     }
+
+    @Override
+    public long comparator(CacheItem<T> item) {
+        return item.getNumAccessed();
+    }
+
     @Override
     public void add(String key, T item, long itemSize) {
         if (this.cache.containsKey(key)) {
@@ -34,23 +37,19 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
     }
 
     @Override
-    public List<T> get(String key) {
-        if (!this.cache.containsKey(key)) {
-            return new ArrayList<>();
-        }
-
-        return this.cache.get(key)
-            .stream()
-            .map(CacheItem::getItem)
-            .collect(Collectors.toList());
-    }
-
-    @Override
     public void clean() {
         this.removeUnwantedIndexes();
     }
 
-    public void removeUnwantedIndexes() {
+    @Override
+    public List<Integer> getOrderedIndex(List<Pair<String, CacheItem<T>>> allItems) {
+        return IntStream.range(0, allItems.size())
+            .boxed()
+            .sorted(Comparator.comparingLong(i -> this.comparator(allItems.get(i).getSecond())))
+            .collect(Collectors.toList());
+    }
+
+    public void _removeUnwantedIndexes() {
         long currentSize = this.currentCacheSize;
         int removed = 0;
 
@@ -68,7 +67,7 @@ public class LFUCachePolicy<T> extends AbstractCachePolicy<T> {
 
         List<Integer> sortedByOrder = IntStream.range(0, allItems.size())
                 .boxed()
-                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getNumAccessed()))
+                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getLastAccessTime()))
                 .collect(Collectors.toList());
 
         int index = 0;

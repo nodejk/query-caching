@@ -10,12 +10,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class MRUPolicy<T> extends AbstractCachePolicy<T> {
-
-    protected Map<String, List<CacheItem<T>>> cache;
-
     public MRUPolicy(Dimension dimension) {
         super(dimension);
         this.cache = new HashMap<>();
+    }
+
+    @Override
+    public long comparator(CacheItem<T> item) {
+        return -1 * item.getLastAccessTime();
     }
 
     @Override
@@ -34,24 +36,21 @@ public class MRUPolicy<T> extends AbstractCachePolicy<T> {
     }
 
     @Override
-    public List<T> get(String key) {
-        if (!this.cache.containsKey(key)) {
-            return new ArrayList<>();
-        }
-
-        return this.cache.get(key)
-            .stream()
-            .map(CacheItem::getItem)
-            .collect(Collectors.toList());
-    }
-
-    @Override
     public void clean() {
         this.removeUnwantedIndexes();
     }
 
     @Override
-    public void removeUnwantedIndexes() {
+    public List<Integer> getOrderedIndex(List<Pair<String, CacheItem<T>>> allItems) {
+        return IntStream.range(0, allItems.size())
+            .boxed()
+            .sorted(Comparator.comparingLong(
+                    i -> this.comparator(allItems.get(i).getSecond()))
+            )
+            .collect(Collectors.toList());
+    }
+
+    public void _removeUnwantedIndexes() {
         long currentSize = this.currentCacheSize;
 
         int removed = 0;
