@@ -6,3 +6,5 @@
 /out/
 /experiments
 **.txt
+/query-caching-results/
+/analysis/findings/
