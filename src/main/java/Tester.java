@@ -371,5 +371,6 @@ public class Tester {
     public void testMain(Mode mode, QueryType queryType) {
         WindowMultiCache window = new WindowMultiCache(this.calciteConfiguration, queryType, this.jsonConfiguration);
         window.run(mode);
+        
     }
 }

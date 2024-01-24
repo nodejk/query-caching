@@ -132,6 +132,8 @@ public class WindowMultiCache {
 
         long time = System.currentTimeMillis() - t1 - subtractable;
         logTime("Stopping... Time: " + time + " ms, Time no sub: " + (System.currentTimeMillis() - t1) + " ms");
+
+        System.out.println(this.cache.cacheHitString());
     }
 
     private void runSequentially(List<String> queries, WindowRunUtils windowRunUtils) {
@@ -185,9 +187,9 @@ public class WindowMultiCache {
 
                     System.out.println("Executing... " + partQuery.toString());
                     try {
-
                         executor.execute(logicalPlan, rs -> System.out.println("Executed " + partQuery.toString()));
                     } catch (Exception e) {
+                        System.out.println("CAN NOT EXECUTE QUERY");
 
                     }
                     continue;

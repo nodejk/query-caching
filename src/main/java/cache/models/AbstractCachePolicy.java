@@ -21,17 +21,54 @@ public abstract class AbstractCachePolicy<T> {
     protected long currentCacheSize;
     public abstract void add(String key, T item, long itemSize);
 
+    protected final int cacheHits = 0;
+
     public final List<T> get(String key) {
         System.out.println("INCREMENTING CACHE COUNT");
         if (!this.cache.containsKey(key)) {
             return new ArrayList<>();
         }
 
+        this.incrementCacheHits();
+
         return this.cache.get(key)
             .stream()
             .map(CacheItem::getItem)
             .collect(Collectors.toList());
     }
+
+    public final void incrementCacheHits() {
+        this.cacheHits += 1;
+    }
+
+    public final int getCacheHits() {
+        return this.cacheHits;
+    }
+
+    public final String cacheHitString() {
+        return String.format("{\"CACHE_HITS\": \"%d\"}", this.cacheHits);
+    }
+    
+    public final String toString() {
+        List<Pair<String, CacheItem<T>>> allItems = new LinkedList<>();
+
+        for (Map.Entry<String, List<CacheItem<T>>> entry: this.cache.entrySet()) {
+            entry.getValue().forEach(
+                    cacheItem -> {
+                        allItems.add(new Pair<>(entry.getKey(), cacheItem));
+                    }
+            );
+        }
+
+
+        int totalCacheHits = 0;
+        
+
+        for (Pair<String, CacheItem<T>> item: allItems) {
+            item.getNumAccessed
+        }
+    }
+
     public abstract void clean();
 
     public final Dimension dimension;

@@ -47,7 +47,7 @@ public class FifoCachePolicy<T> extends AbstractCachePolicy<T> {
     public List<Integer> getOrderedIndex(List<Pair<String, CacheItem<T>>> allItems) {
         return IntStream.range(0, allItems.size())
                 .boxed()
-                .sorted(Comparator.comparingLong(i -> allItems.get(i).getSecond().getOrder()))
+                .sorted(Comparator.comparingLong(i -> this.comparator(allItems.get(i).getSecond()))
                 .collect(Collectors.toList());
     }
 
