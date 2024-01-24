@@ -14,6 +14,8 @@ import pathlib
 
 import seaborn
 
+import plotly.express as plt_express
+import plotly.graph_objects as plt_graph_obj
 
 def get_child_name(full_path: str):
     return pathlib.Path(full_path).parts[-1]
@@ -24,7 +26,6 @@ def get_sub_dir_names_from_paths(paths):
 
 
 def get_sub_dir_names(path):
-    print(path)
     return [get_child_name(f) for f in os.listdir(f'{path}/')]
 
 
@@ -44,10 +45,10 @@ class Exec:
     _num_batches: int
     _time_taken: numpy.int64
 
-    def __init__(self, line):
+    def __init__(self, line, num_queries):
         payload_dict = json.loads(line.split('-')[-1])
 
-        self._num_batches = int(payload_dict['num_queries'])
+        self._num_queries = num_queries
         self._time_taken = numpy.int64(payload_dict['time_taken'])
 
     def __str__(self):
@@ -59,27 +60,31 @@ class Exec:
     def get_time_taken(self):
         return self._time_taken
 
-class CacheInfo:
-    _total_num_queries: int
-    _cache_hits: int
+    def get_num_queries(self):
+        return self._num_queries
+
+    def get_average_query_time(self):
+        return self._time_taken / self._num_queries
+
+class CacheHit:
+    __cache_hit: int
+    temp: int
 
     def __init__(self, line):
 
-        found = re.search(CacheInfo.regex_string(), line)
+        found = re.search(CacheHit.regex_string(), line)
+        payload_dict = json.loads(line)
 
-        payload_dict = json.loads(found.group())
+        self.__cache_hit = numpy.int64(payload_dict['cache_hits'])
+        self.temp = numpy.int64(payload_dict['total_queries'])
 
-        self._cache_hits = float(payload_dict['cache_hits'])
-        self._total_num_queries = float(payload_dict['total_queries'])
+        print(f'total_queries: {self.temp}')
+    
+    def get_cache_hit(self):
+        return self.__cache_hit
 
-    def __str__(self):
-        return f'cache_hits: {self._cache_hits}, total_num_queries: {self._total_num_queries}'
-
-    def get_num_cache_hits(self):
-        return self._cache_hits
-
-    def get_total_num_queries(self):
-        return self._total_num_queries
+    def get_num_queries(self):
+        return self.temp
 
     @staticmethod
     def regex_string():
@@ -87,8 +92,10 @@ class CacheInfo:
 
     @staticmethod
     def check_if_regex_exists(line):
-        return re.search(CacheInfo.regex_string(), line) is not None
+        _temp = re.search(CacheHit.regex_string(), line)
 
+        return _temp is not None
+    
 
 class ResultParser:
 
@@ -98,38 +105,50 @@ class ResultParser:
 
 class ResultFileParser:
     _cache: int
-    _mode: str
+    _mode_type: str
     _cache_size: str
     _query_type: str
     _derivative: int
-    _dimension_type: str
+    _experiment: str
+    _cache_size: int
+    _query_type: str
 
     _execs_info: typing.List[Exec]
-    _cache_info: typing.List[CacheInfo]
+    _all_cache_hits: typing.List[CacheHit]
+
+    _execs_info: typing.List[Exec]
+    _cache_info: typing.List[CacheHit]
 
     def __str__(self):
-        return (f'_cache: {self._cache}'
-                f'_mode: {self._mode}'
-                f'_cache_size: {self._cache_size}'
-                f'_query_type: {self._query_type}'
-                f'_derivative: {self._derivative}'
-                f'_dimension_type: {self._dimension_type}')
+        return ', '.join([f'_cache: {self._experiment}',
+                f'_mode: {self._mode_type}',
+                f'_cache_size: {self._cache_size}',
+                f'_query_type: {self._query_type}',
+                f'_derivative: {self._derivative}'])
+    
     def get_average_time_required(self):
-        return numpy.mean(
-            numpy.array([item.get_num_query_batches() for item in self._execs_info])
-        )
+        return self.get_total_time_required() / self.get_total_number_of_queries_executed()
+
+    def get_total_cache_hits(self):
+        return sum([i.get_cache_hit() for i in self._all_cache_hits])
+
+    def get_total_time_required(self):
+        return sum([i.get_time_taken() for i in self._execs_info])
 
     def get_cache_hits(self):
         return numpy.array([item.get_num_cache_hits() for item in self._cache_info])
 
     def get_number_of_queries(self):
-        return numpy.array([item.get_total_num_queries() for item in self._cache_info])
-
-    def get_total_number_of_queries(self):
         return sum([item.get_total_num_queries() for item in self._cache_info])
 
-    def get_total_cache_hits(self):
-        return sum([item.get_num_cache_hits() for item in self._cache_info])
+    def get_total_query_time(self):
+        return sum([item.get_time_taken() for item in self._execs_info])
+    
+    def get_total_number_of_queries(self):
+        return sum([item.get_num_queries() for item in self._all_cache_hits])
+
+    # def get_total_cache_hits(self):
+    #     return sum([item.get_num_cache_hits() for item in self._cache_info])
 
     def get_execs_count(self):
         return len(self._execs_info)
@@ -140,51 +159,39 @@ class ResultFileParser:
     def get_derivative(self):
         return self._derivative
 
-    def get_total_number_of_queries_batches_executed(self):
-        return numpy.sum(
-            numpy.array([item.get_num_query_batches() for item in self._execs_info])
-        )
+    def get_experiment(self):
+        return self._experiment
 
-    def is_equal(self, other):
-        print(f'other: {other}')
-        print(f"self._cache: {self._cache == other['cache']}")
-        print(f"self._mode: {self._mode == other['mode']}")
-        print(f"self._cache_size: {self._cache_size == other['cache_size']} {self._cache_size} {other['cache_size']}")
-        print(f"self._query_type: {self._query_type == other['query_type']}")
-        print(f"self._derivative: {self._derivative == other['derivative']}")
+    def get_total_number_of_queries_executed(self):
+        return sum([item.get_num_queries() for item in self._all_cache_hits])
 
-        if (
-            self._cache == other["cache"] and
-            self._mode == other["mode"] and
-            self._cache_size == other["cache_size"] and
-            self._query_type == other["query_type"] and
-            self._derivative == other["derivative"]
-        ): return True
-
-        return False
+    def get_meta_data(self):
+        return {
+            'experiment': self._experiment,
+            'mode': self._mode_type,
+            'cache_size': self._cache_size,
+            'query_type': self._query_type,
+            'derivate': self._derivative,
+        }
 
     def __init__(
-        self,
-        file_path,
-        _cache: int,
-        _mode: str,
-        _cache_size: str,
-        _query_type: str,
-        _derivative: str,
-        _dimension_type: str,
+        self, 
+        file_path, 
+        derivative, 
+        experiment,
+        mode_type,
+        cache_size,
+        query_type,
     ):
 
+        self._experiment = experiment
+        self._mode_type = mode_type
+        self._cache_size = cache_size
+        self._query_type = query_type
+
         self._execs_info = []
-        self._cache_info = []
-
-        self._derivative = _derivative
-        self._cache = _cache
-        self._mode = _mode
-        self._cache_size = _cache_size
-        self._query_type = _query_type
-        self._dimension_type = _dimension_type
-
-        print('file_path-->', file_path)
+        self._all_cache_hits = []
+        self._derivative = derivative
 
         with open(file_path, 'r') as f:
             lines = f.readlines()
@@ -216,13 +223,30 @@ class ResultFileParser:
 
                     required_lines = [line.strip() for line in lines[start_index:index]]
 
-                    self._execs_info.append(Exec(required_lines[-1]))
+                    num_queries = 0
 
-                    for _line in required_lines:
-                        if CacheInfo.check_if_regex_exists(_line):
-                            self._cache_info.append(CacheInfo(_line))
+                    test = [i for i in required_lines if 'No. of queries:' in i]
+
+                    num_queries = int(test[0].replace('No. of queries: ', ''))
+
+                    _temp = [i for i in required_lines if 'cache_hits' in i]
+                    _line = _temp[0]
+
+                    print(f'_line: {_line}')
+
+                    self._execs_info.append(Exec(required_lines[-1], num_queries))
+
+                    # for __line in required_lines: 
+                    #     if CacheHit.check_if_regex_exists(__line):
+                    self._all_cache_hits.append(CacheHit(_line))
                 else:
                     index += 1
+
+
+        # print('self._execs_info---->', len(self._execs_info), ' derivative-->', derivative)
+        
+        # print('self._execs_info---->', len(self._execs_info), ' derivative-->', derivative)
+        # pass
 
 
 class DerivativeDirParser:
@@ -264,44 +288,40 @@ class DerivativeDirParser:
         experiment,
         mode_type,
         cache_size,
-        query_tye,
+        query_type,
     ):
         self._experiment_results = []
 
         self.experiment = experiment
         self.mode_type = mode_type
         self.cache_size = cache_size
-        self.query_type = query_tye
+        self.query_type = query_type
 
         for path in directory_paths:
-            _cache = path.split('/')[-5:][0]
-            _mode = path.split('/')[-5:][1]
-            _cache_size = path.split('/')[-5:][2]
-            _query_type = path.split('/')[-5:][3]
-            _derivative = path.split('/')[-5:][4]
-            _dimension_type = 'size_bytes'
-
-
-            print(
-                f'_cache: {_cache},'
-                f'_mode: {_mode},'
-                f'_cache_size: {_cache_size},'
-                f'_query_type: {_query_type},'
-                f'_derivative: {_derivative},'
-                f'_dimension_type: {_dimension_type}'
-            )
-
+            derivative = get_child_name(path)
+            
             self._experiment_results.append(
                 ResultFileParser(
                     file_path=convert_derivative_path_to_result(path),
-                    _cache=_cache,
-                    _mode=_mode,
-                    _cache_size=_cache_size,
-                    _query_type=_query_type,
-                    _derivative=_derivative,
-                    _dimension_type=_dimension_type,
+                    derivative=derivative, 
+                    experiment=experiment,
+                    mode_type=mode_type,
+                    cache_size=cache_size,
+                    query_type=query_type,            
                 )
             )
+
+            # self._experiment_results.append(
+            #     ResultFileParser(
+            #         file_path=convert_derivative_path_to_result(path),
+            #         _cache=_cache,
+            #         _mode=_mode,
+            #         _cache_size=_cache_size,
+            #         _query_type=_query_type,
+            #         _derivative=_derivative,
+            #         _dimension_type=_dimension_type,
+            #     )
+            # )
 
     def get_experiment_results(self):
         return self._experiment_results
@@ -314,11 +334,69 @@ def define_box_properties(ax, plot_name, color_code, label):
     ax.plot([], c=color_code, label=label)
     ax.legend()
 
-def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typing.List[DerivativeDirParser], graph_path):
 
-    fig, ax = plt.subplots()
+def create_dataframe_plot(data):
 
-    print('variables-->', variables, derivatives, len(derivatives_parsed))
+    CACHING_POLICY = 'Caching Policy'
+    CACHE_SIZE_IN_MB = 'Cache Size (in MB)'
+    CHANGE_IN_PERCENT = 'Change (in percentage)'
+
+    results_dataframe = pandas.DataFrame(numpy.array(data), columns=[
+        CACHING_POLICY, CACHE_SIZE_IN_MB, 'val'
+    ])
+
+    results_dataframe['val'] = results_dataframe['val'].astype(float)
+
+    results_dataframe_agg = results_dataframe.groupby([CACHING_POLICY]).agg({
+        'val': numpy.min
+    })
+
+    results_dataframe_agg.rename(columns={
+        'val': 'val_max',
+    }, inplace=True)
+
+    results_dataframe_agg.reset_index(inplace=True)
+
+    # results_dataframe.sort_values(by=[
+    #     CACHING_POLICY, CACHE_SIZE_IN_MB
+    # ])
+
+
+    results_dataframe = results_dataframe.merge(
+        results_dataframe_agg, how='left', on=[CACHING_POLICY]
+    )
+
+    results_dataframe[CHANGE_IN_PERCENT] = 100.0 * (results_dataframe['val_max'] - results_dataframe['val'])/results_dataframe['val_max']
+
+    
+    results_dataframe.drop(
+        ['val', 'val_max'], axis=1, inplace=True
+    )
+
+    results_dataframe[CHANGE_IN_PERCENT] = -1 * results_dataframe[CHANGE_IN_PERCENT].round(2)
+
+    results_dataframe = pandas.pivot_table(
+        results_dataframe, 
+        values=CHANGE_IN_PERCENT, 
+        index=CACHING_POLICY, 
+        columns=[CACHE_SIZE_IN_MB], sort=False).fillna(0)
+
+    fig = plt_express.imshow(results_dataframe, x=results_dataframe.columns, y=results_dataframe.index, text_auto=True)
+    fig = plt_graph_obj.Figure(data=fig.data, layout=fig.layout)
+    fig = fig.update_traces(text=results_dataframe.applymap(lambda x: x).values, texttemplate="%{text}%", hovertemplate=None, xgap=5, ygap=5)
+
+    # fig.show()
+
+
+def create_graph(
+        args, 
+        var_key, 
+        variables, 
+        x_vars, 
+        y_vars: typing.List[ResultFileParser], 
+        graph_path,
+        experiments,
+    ):
 
     sorted_colors = sorted(
         mcolors.TABLEAU_COLORS
@@ -326,108 +404,93 @@ def create_graph(args, var_key, variables, derivatives, derivatives_parsed: typi
 
     shift = 0
 
+    fig_time, ax_time = plt.subplots()
     fig_count, ax_count = plt.subplots()
 
-    fig_cache, ax_cache = plt.subplots()
+    all_results = []
 
-    fig_cache_count, ax_cache_count = plt.subplots()
-
-    for i, derivative_par in enumerate(derivatives_parsed):
-
-        label = derivative_par.get_meta_data()[var_key]
+    for i, experiment in enumerate(y_vars):
 
         derivative_data = []
-        all_query_counts = []
+        all_query_time = []
+        all_query_count = []
 
-        total_number_of_queries = []
-        total_cache_hits = []
+        experiment_label = None
 
-        for deriv in derivatives:
-            derivat_par = [item for item in derivative_par.get_experiment_results() if item.get_derivative() == deriv][0]
 
-            all_query_counts.append(derivat_par.get_execs_count())
+        for result in experiment:
+            experiment_label = result.get_experiment()
+            _temp_derivative = result.get_derivative()
+            
+            label = result.get_meta_data()[var_key]
 
-            total_number_of_queries.append(derivat_par.get_total_number_of_queries())
-            total_cache_hits.append(derivat_par.get_total_cache_hits())
 
-            derivative_data.append([item.get_time_taken() for item in derivat_par.get_all_execs_info()])
+            print(f'result: {result} {result.get_total_query_time()} {result.get_total_number_of_queries_executed()}')
 
-        cache_hit_ratio = [total_cache_hits[i]/total_number_of_queries[i] for i in range(len(total_cache_hits))]
-        cache_hit_count = [total_cache_hits[i] for i in range(len(total_cache_hits))]
+            all_query_time.append(result.get_total_query_time())
+            all_query_count.append(result.get_total_cache_hits() / 320)
+            derivative_data.append(label)
 
-        ax_count.plot(derivatives, all_query_counts, color=sorted_colors[i], label=label)
-        ax_cache.plot(derivatives, cache_hit_ratio, color=sorted_colors[i], label=label)
+            
+            # if experiment_label == 'mru' and _temp_derivative == '10':
+            #     sys.exit()
+            #     all_results.append([result.get_experiment(), label, 1420])
+            # else:
 
-        print(f"cache_hit_count: {cache_hit_count}")
-        ax_cache_count.plot(derivatives, cache_hit_count, color=sorted_colors[i], label=label)
+            all_results.append([result.get_experiment(), label, result.get_average_time_required()])
 
-        derivative_box_plot = ax.boxplot(
+        derivative_box_plot = ax_time.plot(
             derivative_data,
-            positions=numpy.array(numpy.arange(len(derivative_data))) * 2 + shift,
-            widths=0.5,
-            meanline=True,
-            showmeans=True,
-            showfliers=False,
+            all_query_time,
+            label=experiment_label,
+            # positions=numpy.array(numpy.arange(len(derivative_data))) * 2 + shift,
+            # widths=0.5,
+            # meanline=True,
+            # showmeans=True,
+            # showfliers=False,
         )
 
-        shift += 0.35
+        ax_count.plot(
+            derivative_data,
+            all_query_count,
+            label=experiment_label
+        )
 
-        define_box_properties(ax, derivative_box_plot, sorted_colors[i], label)
-
-    ax.set_xticks(numpy.arange(0, len(derivatives) * 2, 2), derivatives)
-
-    # fig.subplots_adjust(right=1.5) # or whatever    ax.legend()
+    # create_dataframe_plot(all_results)
+    print(all_results)
     ax_count.legend()
+    ax_time.legend()
 
-    ax_cache.set_title(
-        f"cache type: {args['experiment']} "
-        f"mode_type: {args['mode']} "
-        f"cache_size: {args['cache_size']} "
-        f"query_type: {args['query_type']}"
-    )
+    ax_time.set_ylabel('Time in (s)')
+    ax_time.set_xlabel('Cache size (in MB)')
 
-    ax.set_title(
-        f"cache type: {args['experiment']} "
-        f"mode_type: {args['mode']} "
-        f"cache_size: {args['cache_size']} "
-        f"query_type: {args['query_type']}"
-    )
-    ax.set_ylabel('time in ms')
-    ax.set_xlabel('derivability percentage')
-
-    ax_count.set_ylabel('Number of executed batches of queries executed')
-    ax_count.set_xlabel('Derivability percentage')
-
-    ax_cache.set_ylabel('Ratio of cache hit to total number of queries')
-    ax_cache.set_xlabel('Derivability percentage')
-
-
-    ax_cache_count.set_ylabel('Number of cache hits')
-    ax_cache_count.set_xlabel('Derivability percentage')
-
-    ax_cache_count.legend()
-
-    ax_cache.legend()
+    ax_count.set_ylabel('Cache hit (in %)')
+    ax_count.set_xlabel('Cache size (in MB)')
 
     f"cache type: {args['experiment']}"
     f"mode_type: {args['mode']}"
     f"cache_size: {args['cache_size']}"
     f"query_type: {args['query_type']}"
 
-    fig.savefig(f'{graph_path}/result.png', bbox_inches='tight', dpi=120)
-
-    print(f'saving to... {graph_path}')
-
-    fig_count.savefig(f'{graph_path}/result_count.png', bbox_inches='tight', dpi=120)
-    fig_cache.savefig(f'{graph_path}/result_cache_hit_ratio.png', bbox_inches='tight', dpi=120)
-    fig_cache_count.savefig(f'{graph_path}/result_cache_count.png', bbox_inches='tight', dpi=120)
+    print(f'path: {graph_path}/result.png')
+    fig_time.savefig(f'{graph_path}/result_time.png', dpi=120)
+    fig_count.savefig(f'{graph_path}/result_count.png', dpi=120)
 
     pass
 
 
 if __name__ == '__main__':
-    example_file = '/home/blackplague/IdeaProjects/query-caching/experiments/fifo/sequence/4/all/10/size_bytes/result.txt'
+    example_file = '/Users/new_horizon/query-caching/query-caching-results/rr/hybrid/4/all/10/size_bytes/result.txt'
 
-    result = ResultFileParser(example_file)
+    result = ResultFileParser(
+        file_path=example_file, 
+        derivative='10', 
+        experiment='rr',
+        mode_type='hybrid',
+        cache_size='4',
+        query_type='all',
+    )
 
-    print([str(i) for i in result._execs_info])
+    print(result.get_average_time_required())
+    print(result.get_total_time_required())
+    print(f'{len(result.get_all_execs_info())}')

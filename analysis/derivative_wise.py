@@ -83,7 +83,7 @@ def create_graph_general(
             _temp[var_key] = deriv
 
             print(f'deriv: {deriv}')
-            flock -n /tmp/google_drv_sync.lock /usr/bin/rclone copy --transfers 20 --retries 5 "/home/blackplague/IdeaProjects/query-caching/experiments" "gdrive-uni:/query-caching-results"
+            # flock -n /tmp/google_drv_sync.lock /usr/bin/rclone copy --transfers 20 --retries 5 "/home/blackplague/IdeaProjects/query-caching/experiments" "gdrive-uni:/query-caching-results"
 
             derivat_par = [item for item in derivative_par.get_experiment_results() if item.is_equal(_temp)][0]
 

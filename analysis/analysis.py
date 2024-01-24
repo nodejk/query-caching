@@ -1,4 +1,5 @@
 import os
+import copy
 
 
 from result_parser import (
@@ -17,11 +18,11 @@ def build_experiment_graph(root_path, cache, mode, cache_size, query_type, deriv
 
     path = f'{root_path}/{cache}'
 
+def build_experiment_graph(root_path, experiment, mode, cache_size, query_type, derivative):
+    path = f'{root_path}/{experiment}'
     modes2 = [i for i in get_sub_dir_names(path) if i == mode]
 
     mode_paths = get_sub_dir_paths(path, modes2)
-
-    cache_items = get_sub_nested_path(mode_paths)
 
     for mode_path in mode_paths:
 
@@ -33,79 +34,57 @@ def build_experiment_graph(root_path, cache, mode, cache_size, query_type, deriv
             query_paths = get_sub_dir_paths(cache_path, query_types)
 
             for query_path in query_paths:
-                dervibility_types = [i for i in get_sub_dir_names(query_path) if i in derivative]
+                dervibility_types = [i for i in get_sub_dir_names(query_path) if i == derivative]
+
+                print(f'query_path: {query_path}')
                 dervibility_paths = get_sub_dir_paths(query_path, dervibility_types)
+                
 
                 return DerivativeDirParser(
                     directory_paths=dervibility_paths,
-                    experiment=cache,
+                    experiment=experiment,
                     mode_type=get_child_name(mode_path),
                     cache_size=get_child_name(cache_path),
-                    query_tye=get_child_name(query_path),
-                )
+                    query_type=get_child_name(query_path),
+                )._experiment_results[0]
 
     raise Exception("can not find derivative", f'experiment: {cache} mode: {mode} cache_size: {cache_size} query_type: {query_type} derivatives: {derivative}')
 
-def get_derivatives(args, root_path):
+def get_derivatives(args, root_path, x_key, experiments):
     all_constants = []
     all_variables = []
-    var_key = None
 
     for key in args.keys():
         val = args[key]
-
-        if isinstance(val, list) and key != 'derivatives':
-            var_key = key
+        if key == x_key:
             all_variables.append(val)
         else:
             all_constants.append(val)
 
-    all_derivatives = []
+    all_experiment_results = []
 
-    print(f'all_variables: {all_variables}')
+    for experiment in experiments:
+        args['experiment'] = experiment
 
-    if len(all_variables) != 1:
-        raise Exception('only one var allowed')
+        _temp = []
 
-    proxy_args = args.copy()
+        for var in all_variables[0]:
+            args[x_key] = var
 
-    for var in all_variables[0]:
-        proxy_args[var_key] = var
-        all_derivatives.append(build_experiment_graph(root_path, **proxy_args))
+            print(f'args: {args}')
 
-    return all_derivatives, {'var_key': var_key, 'variables': all_variables[0]}
+            _temp.append(build_experiment_graph(root_path, **args))
 
-def get_double_derivatives(args, root_path):
-    all_constants = []
-    all_variables = []
-    var_key = None
+        all_experiment_results.append(_temp)
 
-    for key in args.keys():
-        val = args[key]
+    return all_experiment_results, {'var_key': x_key, 'variables': all_variables[0]}
 
-        if isinstance(val, list) and key != 'derivatives':
-            var_key = key
-            all_variables.append(val)
-        else:
-            all_constants.append(val)
 
-    all_derivatives = []
+def generate_graph(args, root_path, output_path, x_key, y_key):
 
-    if len(all_variables) != 2:
-        raise Exception('two vars allowed')
+    fixed_keys_values = [key + " : " + str(args[key]) for key in args.keys() if key != x_key]
 
-    proxy_args = args.copy()
-
-    for var in all_variables[0]:
-        proxy_args[var_key] = var
-        all_derivatives.append(build_experiment_graph(root_path, **proxy_args))
-
-    return all_derivatives, {'var_key': var_key, 'variables': all_variables[0]}
-def generate_graph(args, root_path, output_path):
-
-    fixed_keys_values = [key + " : " + str(args[key]) for key in args.keys() if key not in ['derivative']]
-
-    derivatives_parsed, var_args = get_derivatives(args, root_path)
+    all_experiment_results, var_args = get_derivatives(copy.deepcopy(args), root_path, x_key, args['experiment'])
 
     var_key = var_args['var_key']
     variables = var_args['variables']
@@ -117,7 +96,15 @@ def generate_graph(args, root_path, output_path):
     if not os.path.isdir(graph_path):
         os.mkdir(graph_path)
 
-    create_graph(args, var_key, variables, args['derivatives'], derivatives_parsed, graph_path)
+    create_graph(
+        args=args, 
+        var_key=var_key, 
+        variables=variables, 
+        x_vars=args[y_key],
+        y_vars=all_experiment_results, 
+        graph_path=graph_path,
+        experiments=args['experiment']
+    )
 
 
 def generate_graph_general(args, root_path, output_path):
@@ -175,52 +162,20 @@ def generate_graph_derivative_separately(args, root_path, output_path):
 
 
 if __name__ == '__main__':
-    ROOT_EXPERIMENT_PATH = '/home/blackplague/IdeaProjects/query-caching/experiments'
+    ROOT_EXPERIMENT_PATH = '/Users/new_horizon/query-caching/query-caching-results'
 
-    OUTPUT_PATH = '/home/blackplague/IdeaProjects/query-caching/analysis/findings'
+    OUTPUT_PATH = '/Users/new_horizon/query-caching/analysis/findings_1'
 
-    # generate_graph({
-    #     'experiment': 'mru',
-    #     # 'mode': ['sequence', 'hybrid', 'mvr'],
-    #     'mode': 'sequence',
-    #     # 'cache_size': ['8', '32', '64', '256', '512', '1024'],
-    #     'cache_size': ['4', '32', '64', '128', '256'],
-    #     'query_type': 'all',
-    #     # 'query_type': ['all', 'complex_filter', 'filter_join'],
-    #     'derivative': ['10', '25', '45', '75', '90'],
-    # }, ROOT_EXPERIMENT_PATH, OUTPUT_PATH)
-
-    generate_graph_general({
-        'cache': 'mru',
-        # 'mode': ['sequence', 'hybrid', 'mvr'],
-        'mode': 'sequence',
-        # 'cache_size': ['8', '32', '64', '256', '512', '1024'],
-        'cache_size': ['4', '32', '64', '128', '256'],
-        'query_type': 'all',
-        # 'query_type': ['all', 'complex_filter', 'filter_join'],
-        'derivative': '10',
-    }, ROOT_EXPERIMENT_PATH, OUTPUT_PATH)
-    # generate_graph_derivative_separately({
-    #     'experiment': ['rr', 'mru'],
-    #     # 'mode': ['sequence', 'hybrid', 'mvr'],
-    #     'mode': 'mvr',
-    #     # 'cache_size': ['8', '64', '256', '512', '1024', '4096'],
-    #     'cache_size': '2048',
-    #     'query_type': 'all',
-    #     'derivative': ['10', '25', '45', '75', '90'],
-    # }, ROOT_EXPERIMENT_PATH, OUTPUT_PATH)
-
-    # experiment_types = ['fifo', 'mru']
-    #
-    #
-    # experiment = 'fifo'
-    # mode = 'sequence'
-    # cache_sizes = ['4', '8']
-    # query_type = 'all'
-    # derivative = '10'
-    #
-    # all_derivative = []
-    #
-    # for cache in cache_sizes:
-    #     all_derivative.push(build_experiment_graph(experiment, mode,cache, query_type, derivative))
-    # pass
+    generate_graph(
+        {
+            'experiment': [
+                'lfu', 'fifo'
+            ],
+            'mode': 'hybrid',
+            'cache_size': ['4', '32', '64', '128', '256', '512', '1024', '2048', '4096'],
+            'query_type': 'all',
+            'derivative': '75',
+        }, ROOT_EXPERIMENT_PATH, OUTPUT_PATH,
+        x_key='cache_size',
+        y_key='experiment'
+    )
